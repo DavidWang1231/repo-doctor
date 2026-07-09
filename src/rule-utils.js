@@ -30,6 +30,16 @@ export function strength({ id, title, category, summary, evidence: evidenceItems
   };
 }
 
+export function skipped({ id, title, category, reason, evidence: evidenceItems = [] }) {
+  return {
+    id,
+    title,
+    category,
+    reason,
+    evidence: evidenceItems
+  };
+}
+
 export function isTestPath(filePath) {
   return /(^|\/)(__tests__|tests?|spec)\//i.test(filePath) ||
     /\.(test|spec)\.[cm]?[jt]sx?$/i.test(filePath) ||

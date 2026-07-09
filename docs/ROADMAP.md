@@ -18,6 +18,14 @@
 
 ## v0.3
 
+- Project profile detection
+- Static game, static site, CLI, web app, backend service, library, Python, docs-only, and generic profiles
+- Profile-aware severity for missing tests and CI
+- Skipped-check explanations
+- README checks that accept real wording such as "Run locally"
+
+## v0.4
+
 - Config file support
 - Rule severity overrides
 - Optional hosted AI narrative summary from `report.json`

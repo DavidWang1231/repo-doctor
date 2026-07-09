@@ -6,9 +6,11 @@ Repo Doctor scans a local repository and produces a prioritized health report co
 
 ![Repo Doctor report preview](docs/assets/report-preview.svg)
 
-Current v0.2 runs without runtime dependencies. The scanner is deterministic first, AI-ready second: every finding is backed by structured evidence in `report.json`, so summaries can explain and prioritize issues without inventing facts.
+Current v0.3 runs without runtime dependencies. The scanner is deterministic first, AI-ready second: every finding is backed by structured evidence in `report.json`, so summaries can explain and prioritize issues without inventing facts.
 
 Live demo page: https://davidwang1231.github.io/repo-doctor/
+
+Repo Doctor now detects project profiles before scoring. A static game is not graded like an npm library, and skipped checks are explained in the report.
 
 ## Why This Exists
 
@@ -120,6 +122,24 @@ node ./src/cli.js fix . --write
 - Docker local workflow hints
 - TypeScript configuration basics
 
+## Project Profiles
+
+Repo Doctor first identifies the kind of repository it is looking at, then applies rules that fit that profile.
+
+Current profiles include:
+
+- `static-game`: a browser game or GitHub Pages demo built around `index.html`, canvas, and browser game-loop signals
+- `static-site`: a simple static website
+- `cli-tool`: a package with a command-line entry point
+- `web-app`: a frontend app with build or dev scripts
+- `backend-service`: an API or server-side service
+- `library`: a reusable package with exports, main, module, or type entry points
+- `python-project`: a Python repository
+- `docs-only`: a documentation-heavy repository
+- `generic`: fallback when no stronger profile is detected
+
+Rules adapt to the profile. For example, a static game is not penalized for missing unit tests, `SECURITY.md`, or `CONTRIBUTING.md` when those checks do not fit the project. Instead, Repo Doctor focuses on things that matter for that repository type, such as playable documentation, GitHub Pages safety, syntax checks, and `.gitignore`.
+
 ## Low-Risk Fixes
 
 `repo-doctor fix` only creates missing files. It does not overwrite existing files.
@@ -178,7 +198,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DavidWang1231/repo-doctor@v0.2.1
+      - uses: DavidWang1231/repo-doctor@v0.3.0
         with:
           path: "."
           output: "repo-doctor-report"
@@ -189,7 +209,7 @@ jobs:
 
 ## Configuration
 
-v0.2 intentionally has no configuration file. The rule set is fixed while the project proves the core workflow.
+v0.3 intentionally has no configuration file. The rule set is fixed while the project proves the core workflow.
 
 Planned configuration support:
 

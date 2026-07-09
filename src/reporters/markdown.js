@@ -12,6 +12,13 @@ export function renderMarkdown(report) {
   lines.push("");
   lines.push(`**Health Score:** ${report.score}/100`);
   lines.push("");
+  if (report.project.profile) {
+    lines.push(`**Project Type:** ${report.project.profile.label}`);
+    if (report.project.profile.rationale?.length > 0) {
+      lines.push(`Detected from: ${report.project.profile.rationale.join(", ")}`);
+    }
+    lines.push("");
+  }
   lines.push(`**Findings:** ${critical} critical, ${warnings} warnings, ${fixable} fixable suggestions`);
   lines.push("");
   lines.push("## Category Scores");
@@ -59,6 +66,15 @@ export function renderMarkdown(report) {
   } else {
     for (const item of report.strengths.slice(0, 12)) {
       lines.push(`- **${item.title}:** ${item.summary}`);
+    }
+  }
+
+  if (report.skipped?.length > 0) {
+    lines.push("");
+    lines.push("## Skipped Checks");
+    lines.push("");
+    for (const item of report.skipped) {
+      lines.push(`- **${item.title}:** ${item.reason}`);
     }
   }
 

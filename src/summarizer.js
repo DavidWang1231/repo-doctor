@@ -24,6 +24,9 @@ export function renderPrioritySummary(report) {
   lines.push(`# Repo Doctor Priority Summary: ${report.project.name}`);
   lines.push("");
   lines.push(`Health score: **${report.score}/100**`);
+  if (report.project.profile) {
+    lines.push(`Project type: **${report.project.profile.label}**`);
+  }
   lines.push(`Findings: **${critical.length} critical**, **${warnings.length} warnings**, **${findings.length} total**`);
   lines.push("");
 
@@ -65,6 +68,15 @@ export function renderPrioritySummary(report) {
     });
   }
 
+  if (report.skipped?.length > 0) {
+    lines.push("## Skipped Checks");
+    lines.push("");
+    for (const item of report.skipped) {
+      lines.push(`- **${item.title}:** ${item.reason}`);
+    }
+    lines.push("");
+  }
+
   lines.push("## AI Handoff Prompt");
   lines.push("");
   lines.push("Use this prompt with an LLM if you want a narrative repair plan:");
@@ -75,6 +87,9 @@ export function renderPrioritySummary(report) {
   lines.push("Return a prioritized repair plan with concrete pull request-sized tasks.");
   lines.push("");
   lines.push(`Project: ${report.project.name}`);
+  if (report.project.profile) {
+    lines.push(`Project type: ${report.project.profile.label}`);
+  }
   lines.push(`Score: ${report.score}/100`);
   lines.push("Top findings:");
   for (const finding of findings.slice(0, 8)) {
@@ -90,6 +105,14 @@ export function renderPrioritySummary(report) {
 }
 
 function renderExecutiveRead(report, critical, warnings) {
+  if (report.project.profile?.id === "static-game") {
+    if (critical.length === 0 && warnings.length === 0) {
+      return "This looks like a static game/demo, and the current profile did not find blocking project-health issues. Keep lightweight syntax checks and README play/run instructions current.";
+    }
+
+    return "This looks like a static game/demo, so the report avoids forcing library-style requirements such as unit tests, SECURITY.md, or CONTRIBUTING.md. Focus on findings that affect players or GitHub Pages delivery.";
+  }
+
   if (critical.length === 0 && warnings.length === 0) {
     return "The repository is in strong shape according to the current ruleset. The next best improvements are deeper language-specific checks, dependency risk analysis, and real-world PR validation.";
   }

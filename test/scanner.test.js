@@ -84,6 +84,102 @@ test("scanRepository rewards a small healthy Node repository", async () => {
   assert.ok(report.strengths.some((strength) => strength.id === "ci-present"));
 });
 
+test("scanRepository applies a lighter profile to static canvas games", async () => {
+  const root = await makeTempRepo({
+    "README.md": [
+      "# Signal Defender",
+      "",
+      "Play the live demo on GitHub Pages.",
+      "",
+      "## Run locally",
+      "",
+      "```bash",
+      "python3 -m http.server 8000",
+      "```",
+      "",
+      "## Controls",
+      "",
+      "Use the mouse and keyboard to defend the signal."
+    ].join("\n"),
+    "LICENSE": "MIT\n",
+    ".gitignore": ".DS_Store\n.claude/\n",
+    "index.html": [
+      "<!doctype html>",
+      "<canvas id=\"game\"></canvas>",
+      "<script>",
+      "const canvas = document.getElementById('game');",
+      "const ctx = canvas.getContext('2d');",
+      "let score = 0;",
+      "let player = { x: 0, y: 0 };",
+      "let enemy = { x: 10, y: 10 };",
+      "function loop() { score += enemy.x - player.x; requestAnimationFrame(loop); }",
+      "window.addEventListener('keydown', () => {});",
+      "loop();",
+      "</script>"
+    ].join("\n")
+  });
+
+  const report = await scanRepository(root);
+  const ids = report.findings.map((finding) => finding.id);
+  const skippedIds = report.skipped.map((item) => item.id);
+
+  assert.equal(report.project.profile.id, "static-game");
+  assert.ok(report.score >= 85);
+  assert.ok(ids.includes("static-syntax-workflow-missing"));
+  assert.ok(!ids.includes("tests-missing"));
+  assert.ok(!ids.includes("contributing-missing"));
+  assert.ok(!ids.includes("security-policy-missing"));
+  assert.ok(skippedIds.includes("unit-tests-not-required"));
+  assert.ok(skippedIds.includes("contributing-not-required"));
+  assert.ok(skippedIds.includes("security-policy-not-required"));
+});
+
+test("scanRepository detects common non-static project profiles", async () => {
+  const docsRoot = await makeTempRepo({
+    "README.md": "# Docs\n",
+    "guide.md": "# Guide\n",
+    "reference.md": "# Reference\n"
+  });
+  const cliRoot = await makeTempRepo({
+    "package.json": JSON.stringify({
+      name: "cli-app",
+      bin: {
+        "cli-app": "./cli.js"
+      }
+    }, null, 2),
+    "cli.js": "console.log('ok');\n"
+  });
+  const backendRoot = await makeTempRepo({
+    "package.json": JSON.stringify({
+      name: "api-app",
+      dependencies: {
+        express: "latest"
+      }
+    }, null, 2),
+    "server.js": "import express from 'express';\nexpress().listen(3000);\n"
+  });
+  const libraryRoot = await makeTempRepo({
+    "package.json": JSON.stringify({
+      name: "lib-app",
+      main: "index.js"
+    }, null, 2),
+    "index.js": "export function ok() { return true; }\n"
+  });
+
+  const docsReport = await scanRepository(docsRoot);
+  const cliReport = await scanRepository(cliRoot);
+  const backendReport = await scanRepository(backendRoot);
+  const libraryReport = await scanRepository(libraryRoot);
+
+  assert.equal(docsReport.project.profile.id, "docs-only");
+  assert.equal(cliReport.project.profile.id, "cli-tool");
+  assert.equal(backendReport.project.profile.id, "backend-service");
+  assert.equal(libraryReport.project.profile.id, "library");
+  assert.ok(docsReport.skipped.some((item) => item.id === "unit-tests-not-required"));
+  assert.ok(backendReport.findings.some((finding) => finding.id === "security-policy-missing" && finding.severity === "warning"));
+  assert.ok(libraryReport.findings.some((finding) => finding.id === "tests-missing" && finding.severity === "critical"));
+});
+
 test("reporters render evidence-bearing output", async () => {
   const root = await makeTempRepo({
     "package.json": JSON.stringify({ name: "render-app" }, null, 2)

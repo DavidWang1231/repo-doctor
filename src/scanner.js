@@ -1,4 +1,5 @@
 import path from "node:path";
+import { VERSION } from "./constants.js";
 import { runChecks } from "./checks.js";
 import { walkRepository } from "./file-system.js";
 
@@ -11,11 +12,12 @@ export async function scanRepository(targetPath = ".", source = null) {
   return {
     tool: {
       name: "Repo Doctor",
-      version: "0.1.0"
+      version: VERSION
     },
     project: {
       name: inferProjectName(rootDir, files),
       root: rootDir,
+      profile: checks.profile,
       source: source ?? {
         type: "local",
         input: targetPath
@@ -27,6 +29,7 @@ export async function scanRepository(targetPath = ".", source = null) {
     categories: checks.categories,
     findings: checks.findings,
     strengths: checks.strengths,
+    skipped: checks.skipped,
     aiContext: {
       instruction: "Use only the structured evidence in this JSON when writing recommendations. Do not invent missing files, tests, workflows, or vulnerabilities.",
       evidenceContract: "Each finding includes file and line references where Repo Doctor found the signal."

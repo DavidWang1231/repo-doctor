@@ -85,6 +85,7 @@ export function renderHtml(report) {
     .metric,
     .finding,
     .strength,
+    .profile,
     .language-row {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -202,6 +203,12 @@ export function renderHtml(report) {
       border-left: 4px solid var(--good);
     }
 
+    .profile {
+      padding: 16px;
+      margin: 18px 0 0;
+      border-left: 4px solid var(--blue);
+    }
+
     .languages {
       display: grid;
       gap: 8px;
@@ -239,6 +246,12 @@ export function renderHtml(report) {
       <p class="muted">Repo Doctor Report</p>
       <h1>${escapeHtml(report.project.name)}</h1>
       <p class="muted">Scanned ${escapeHtml(report.project.scannedAt)}. Evidence-first checks for documentation, CI, testing, maintainability, security, and open-source readiness.</p>
+      ${report.project.profile ? `
+        <div class="profile">
+          <h3>Project Type: ${escapeHtml(report.project.profile.label)}</h3>
+          <p class="muted">${escapeHtml((report.project.profile.rationale ?? []).join(", "))}</p>
+        </div>
+      ` : ""}
     </header>
 
     <section class="summary" aria-label="Summary">
@@ -278,6 +291,15 @@ export function renderHtml(report) {
         ${report.strengths.length === 0 ? "<p>No strengths were detected by the current ruleset.</p>" : report.strengths.slice(0, 12).map(renderStrength).join("")}
       </div>
     </section>
+
+    ${report.skipped?.length > 0 ? `
+      <section>
+        <h2>Skipped Checks</h2>
+        <div class="strengths">
+          ${report.skipped.map(renderSkipped).join("")}
+        </div>
+      </section>
+    ` : ""}
 
     <section>
       <h2>Repository Stats</h2>
@@ -335,6 +357,15 @@ function renderStrength(strength) {
     <article class="strength">
       <h3>${escapeHtml(strength.title)}</h3>
       <p>${escapeHtml(strength.summary)}</p>
+    </article>
+  `;
+}
+
+function renderSkipped(skipped) {
+  return `
+    <article class="strength">
+      <h3>${escapeHtml(skipped.title)}</h3>
+      <p>${escapeHtml(skipped.reason)}</p>
     </article>
   `;
 }

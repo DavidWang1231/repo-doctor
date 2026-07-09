@@ -1,7 +1,15 @@
 import { evidence, findLine } from "../file-system.js";
-import { finding, strength } from "../rule-utils.js";
+import {
+  isStaticShowcaseProfile,
+  missingCiPolicy,
+  missingTestsSeverity,
+  securityPolicy,
+  shouldSkipContributing,
+  shouldSkipUnitTests
+} from "../profile.js";
+import { finding, skipped, strength } from "../rule-utils.js";
 
-export function checkReadme({ readmeFile, packageJson, findings, strengths }) {
+export function checkReadme({ readmeFile, packageJson, profile, testFiles, productionSourceFiles, findings, strengths }) {
   if (!readmeFile) {
     findings.push(finding({
       id: "readme-missing",
@@ -16,14 +24,25 @@ export function checkReadme({ readmeFile, packageJson, findings, strengths }) {
     return;
   }
 
+  if (isStaticShowcaseProfile(profile)) {
+    checkStaticShowcaseReadme({ readmeFile, findings, strengths });
+    return;
+  }
+
   const content = readmeFile.content.toLowerCase();
   const missingSections = [];
   const expectedSections = [
     ["install", "installation", "setup"],
-    ["usage", "quick start", "getting started"],
-    ["test", "testing"],
-    ["config", "configuration", "environment"]
+    ["usage", "quick start", "getting started", "run locally", "local setup", "demo", "play"]
   ];
+
+  if (packageJson?.scripts?.test || testFiles?.length > 0) {
+    expectedSections.push(["test", "testing", "verification", "checks"]);
+  }
+
+  if (usesEnvironmentVariables(productionSourceFiles)) {
+    expectedSections.push(["config", "configuration", "environment", ".env"]);
+  }
 
   for (const aliases of expectedSections) {
     if (!aliases.some((alias) => content.includes(alias))) {
@@ -135,17 +154,33 @@ export function checkReadmeScripts({ readmeFile, packageFile, packageJson, findi
   }
 }
 
-export function checkTesting({ packageFile, packageJson, testFiles, workflowFiles, findings, strengths }) {
+export function checkTesting({ packageFile, packageJson, testFiles, workflowFiles, profile, findings, strengths, skipped: skippedItems }) {
   const hasTestScript = Boolean(packageJson?.scripts?.test);
 
   if (testFiles.length === 0) {
+    if (shouldSkipUnitTests(profile)) {
+      skippedItems.push(skipped({
+        id: "unit-tests-not-required",
+        title: "Unit test requirement skipped for this project profile",
+        category: "testing",
+        reason: "This project profile does not have an obvious exported API or command-line workflow. Lightweight validation is more useful than forcing unit tests.",
+        evidence: [evidence("tests/", 1, "No test files matched common test naming conventions.")]
+      }));
+      return;
+    }
+
+    const severity = missingTestsSeverity(profile);
     findings.push(finding({
       id: "tests-missing",
       title: "No test files were found",
-      severity: "critical",
+      severity,
       category: "testing",
-      summary: "The repository has no obvious automated tests, which makes regressions difficult to catch.",
-      recommendation: "Add tests around the main public API or command-line workflow first.",
+      summary: severity === "critical"
+        ? "This project type usually needs automated tests to prevent regressions in public behavior."
+        : "No obvious automated tests were found. A lightweight smoke test may be enough for this project type.",
+      recommendation: severity === "critical"
+        ? "Add tests around the main public API, service behavior, or command-line workflow first."
+        : "Add a small smoke test for the most important user path, or document why manual verification is enough.",
       evidence: [evidence("tests/", 1, "No test files matched common test naming conventions.")],
       fixable: false
     }));
@@ -187,15 +222,17 @@ export function checkTesting({ packageFile, packageJson, testFiles, workflowFile
   }
 }
 
-export function checkCi({ workflowFiles, findings, strengths }) {
+export function checkCi({ workflowFiles, profile, findings, strengths }) {
   if (workflowFiles.length === 0) {
+    const policy = missingCiPolicy(profile);
+
     findings.push(finding({
-      id: "ci-missing",
-      title: "No GitHub Actions workflow found",
-      severity: "critical",
+      id: policy.id,
+      title: policy.title,
+      severity: policy.severity,
       category: "ci",
-      summary: "Without CI, contributors cannot tell whether a pull request passes the expected checks.",
-      recommendation: "Add a workflow that runs install, test, and build or lint commands on pull requests.",
+      summary: policy.summary,
+      recommendation: policy.recommendation,
       evidence: [evidence(".github/workflows/", 1, "No workflow YAML files found.")],
       fixable: true
     }));
@@ -224,7 +261,7 @@ export function checkCi({ workflowFiles, findings, strengths }) {
   }
 }
 
-export function checkOpenSourceFiles({ licenseFile, contributingFile, securityFile, gitignoreFile, findings, strengths }) {
+export function checkOpenSourceFiles({ licenseFile, contributingFile, securityFile, gitignoreFile, profile, findings, strengths, skipped: skippedItems }) {
   if (!licenseFile) {
     findings.push(finding({
       id: "license-missing",
@@ -246,7 +283,15 @@ export function checkOpenSourceFiles({ licenseFile, contributingFile, securityFi
     }));
   }
 
-  if (!contributingFile) {
+  if (!contributingFile && shouldSkipContributing(profile)) {
+    skippedItems.push(skipped({
+      id: "contributing-not-required",
+      title: "Contribution guide not required for this project type",
+      category: "open_source",
+      reason: "This profile looks more like a showcase, static site, or documentation repository than a reusable project seeking outside contributors.",
+      evidence: [evidence("CONTRIBUTING.md", 1, "No contribution guide found.")]
+    }));
+  } else if (!contributingFile) {
     findings.push(finding({
       id: "contributing-missing",
       title: "Contribution guide is missing",
@@ -259,11 +304,20 @@ export function checkOpenSourceFiles({ licenseFile, contributingFile, securityFi
     }));
   }
 
-  if (!securityFile) {
+  const securityTreatment = securityPolicy(profile);
+  if (!securityFile && securityTreatment === "skip") {
+    skippedItems.push(skipped({
+      id: "security-policy-not-required",
+      title: "Security policy not required for this project type",
+      category: "security",
+      reason: "This project profile has no backend service, account system, or dependency tree that would make a vulnerability disclosure policy essential.",
+      evidence: [evidence("SECURITY.md", 1, "No security policy found.")]
+    }));
+  } else if (!securityFile) {
     findings.push(finding({
       id: "security-policy-missing",
       title: "Security policy is missing",
-      severity: "info",
+      severity: securityTreatment,
       category: "security",
       summary: "A security policy tells users how to report vulnerabilities responsibly.",
       recommendation: "Add SECURITY.md with supported versions and vulnerability reporting instructions.",
@@ -284,6 +338,57 @@ export function checkOpenSourceFiles({ licenseFile, contributingFile, securityFi
       fixable: true
     }));
   }
+}
+
+function checkStaticShowcaseReadme({ readmeFile, findings, strengths }) {
+  const content = readmeFile.content.toLowerCase();
+  const hasRunInstructions = hasCommandBlock(readmeFile.content) ||
+    /run locally|local setup|open index\.html|python3? -m http\.server|npx serve|live server/.test(content);
+  const hasPlaySignal = /play|demo|github\.io|live|try it|试玩|在线/.test(content);
+  const hasControlSignal = /control|keyboard|mouse|arrow|wasd|space|click|tap|操作|按键/.test(content);
+  const missing = [];
+
+  if (!hasRunInstructions) {
+    missing.push("local run instructions");
+  }
+
+  if (!hasPlaySignal) {
+    missing.push("play/demo link or gameplay description");
+  }
+
+  if (!hasControlSignal) {
+    missing.push("controls");
+  }
+
+  if (missing.length === 0) {
+    strengths.push(strength({
+      id: "static-showcase-readme",
+      title: "README fits a static showcase project",
+      category: "documentation",
+      summary: "The README includes practical play/demo, local run, and control guidance for a static game or demo.",
+      evidence: [evidence(readmeFile, 1)]
+    }));
+    return;
+  }
+
+  findings.push(finding({
+    id: "static-showcase-readme-thin",
+    title: "README could better present this static demo",
+    severity: missing.includes("local run instructions") ? "warning" : "info",
+    category: "documentation",
+    summary: `Missing static-demo guidance: ${missing.join(", ")}.`,
+    recommendation: "For a static game or demo, add a live play link, local run instructions, controls, and ideally a screenshot or GIF.",
+    evidence: [evidence(readmeFile, 1, "README exists but does not cover all static-demo signals.")],
+    fixable: true
+  }));
+}
+
+function hasCommandBlock(content) {
+  return /```(?:bash|sh|shell|text)?\s*[\s\S]*?(npm|node|python|open|serve|http-server|vite)[\s\S]*?```/i.test(content);
+}
+
+function usesEnvironmentVariables(sourceFiles = []) {
+  return sourceFiles.some((file) => /process\.env(?:\.|\[)|os\.environ(?:\.|\[|\.get)|Deno\.env\.get|getenv\(/.test(file.content));
 }
 
 export function checkDocker({ dockerfile, composeFile, findings, strengths }) {

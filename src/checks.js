@@ -1,4 +1,5 @@
 import { findFile, findFiles, readJsonFile, evidence } from "./file-system.js";
+import { detectProjectProfile } from "./profile.js";
 import { finding, isTestPath } from "./rule-utils.js";
 import { calculateOverallScore, scoreCategories, sortFindings } from "./scoring.js";
 import {
@@ -16,7 +17,8 @@ import { checkMaintainability, checkTypeScript } from "./rules/maintainability.j
 export async function runChecks({ rootDir, files }) {
   const findings = [];
   const strengths = [];
-  const context = buildContext({ rootDir, files, findings, strengths });
+  const skipped = [];
+  const context = buildContext({ rootDir, files, findings, strengths, skipped });
 
   if (context.packageFile) {
     try {
@@ -34,6 +36,7 @@ export async function runChecks({ rootDir, files }) {
     }
   }
 
+  context.profile = detectProjectProfile(context);
   runProjectHygieneChecks(context);
   runSecurityChecks(context);
   runMaintainabilityChecks(context);
@@ -44,11 +47,13 @@ export async function runChecks({ rootDir, files }) {
     score: calculateOverallScore(categories),
     categories,
     findings: sortFindings(findings),
-    strengths
+    strengths,
+    skipped,
+    profile: context.profile
   };
 }
 
-function buildContext({ rootDir, files, findings, strengths }) {
+function buildContext({ rootDir, files, findings, strengths, skipped }) {
   const sourceFiles = files.filter((file) =>
     [".js", ".jsx", ".mjs", ".ts", ".tsx", ".py", ".go", ".rs", ".rb", ".php", ".java"].includes(file.extension)
   );
@@ -58,6 +63,8 @@ function buildContext({ rootDir, files, findings, strengths }) {
     files,
     findings,
     strengths,
+    skipped,
+    profile: null,
     packageFile: findFile(files, ["package.json"]),
     packageJson: null,
     readmeFile: files.find((file) => /^readme\.(md|txt)$/i.test(file.path)),
