@@ -6,4 +6,5 @@ coverage/
 .env.*
 !.env.example
 repo-doctor-report/
+repo-doctor-runs/
 examples/self-scan/

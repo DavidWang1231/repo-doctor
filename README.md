@@ -6,10 +6,6 @@ Repo Doctor scans a local repository and produces a prioritized health report co
 
 ![Repo Doctor report preview](docs/assets/report-preview.svg)
 
-```bash
-npx repo-doctor scan .
-```
-
 Current v0.2 runs without runtime dependencies. The scanner is deterministic first, AI-ready second: every finding is backed by structured evidence in `report.json`, so summaries can explain and prioritize issues without inventing facts.
 
 Live demo page: https://davidwang1231.github.io/repo-doctor/
@@ -26,7 +22,42 @@ Repo Doctor takes a smaller, sharper wedge: can a maintainer or contributor quic
 
 ## Quick Start
 
-Clone or install the package, then run:
+### Installation
+
+Clone the repository or download it from GitHub. Repo Doctor currently runs directly from source and does not need package installation.
+
+### One-Click Mode
+
+On macOS, double-click:
+
+```text
+Repo Doctor.command
+```
+
+On Windows, double-click:
+
+```text
+Repo Doctor.cmd
+```
+
+Then drag a project folder into the terminal window, paste a GitHub URL, or press Enter to scan Repo Doctor itself.
+
+One-click mode will:
+
+- scan the project
+- generate HTML, Markdown, JSON, and summary reports
+- open the HTML report automatically
+- avoid changing the scanned project
+
+Reports are saved under:
+
+```text
+repo-doctor-runs/
+```
+
+### Command Mode
+
+Run a scan from the terminal:
 
 ```bash
 node ./src/cli.js scan .
@@ -147,7 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DavidWang1231/repo-doctor@v0.2.0
+      - uses: DavidWang1231/repo-doctor@v0.2.1
         with:
           path: "."
           output: "repo-doctor-report"
@@ -158,7 +189,7 @@ jobs:
 
 ## Configuration
 
-v0.1 intentionally has no configuration file. The rule set is fixed while the project proves the core workflow.
+v0.2 intentionally has no configuration file. The rule set is fixed while the project proves the core workflow.
 
 Planned configuration support:
 
