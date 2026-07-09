@@ -1,13 +1,13 @@
 {
   "name": "repo-doctor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Evidence-based repository health checks for real-world codebases.",
   "type": "module",
   "bin": {
     "repo-doctor": "./src/cli.js"
   },
   "scripts": {
-    "lint": "node --check src/cli.js && node --check src/scanner.js && node --check src/checks.js && node --check src/file-system.js && node --check src/constants.js && node --check src/rule-utils.js && node --check src/scoring.js && node --check src/rules/project-hygiene.js && node --check src/rules/security.js && node --check src/rules/maintainability.js && node --check src/reporters/html.js && node --check src/reporters/markdown.js && node --check test/scanner.test.js",
+    "lint": "node --check src/cli.js && node --check src/scanner.js && node --check src/checks.js && node --check src/file-system.js && node --check src/constants.js && node --check src/rule-utils.js && node --check src/scoring.js && node --check src/target.js && node --check src/summarizer.js && node --check src/fixes.js && node --check src/rules/project-hygiene.js && node --check src/rules/security.js && node --check src/rules/maintainability.js && node --check src/reporters/html.js && node --check src/reporters/markdown.js && node --check test/scanner.test.js",
     "scan": "node ./src/cli.js scan .",
     "test": "node --test",
     "doctor": "node ./src/cli.js scan . --out examples/self-scan"

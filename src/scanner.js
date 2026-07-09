@@ -2,7 +2,7 @@ import path from "node:path";
 import { runChecks } from "./checks.js";
 import { walkRepository } from "./file-system.js";
 
-export async function scanRepository(targetPath = ".") {
+export async function scanRepository(targetPath = ".", source = null) {
   const rootDir = path.resolve(targetPath);
   const files = await walkRepository(rootDir);
   const stats = buildStats(files);
@@ -16,6 +16,10 @@ export async function scanRepository(targetPath = ".") {
     project: {
       name: inferProjectName(rootDir, files),
       root: rootDir,
+      source: source ?? {
+        type: "local",
+        input: targetPath
+      },
       scannedAt: new Date().toISOString()
     },
     stats,

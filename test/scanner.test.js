@@ -3,7 +3,10 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { applyFixes, planFixes } from "../src/fixes.js";
 import { scanRepository } from "../src/scanner.js";
+import { renderPrioritySummary } from "../src/summarizer.js";
+import { parseGitHubTarget } from "../src/target.js";
 import { renderMarkdown } from "../src/reporters/markdown.js";
 import { renderHtml } from "../src/reporters/html.js";
 
@@ -94,6 +97,63 @@ test("reporters render evidence-bearing output", async () => {
   assert.match(markdown, /Evidence/);
   assert.match(html, /Repo Doctor Report/);
   assert.match(html, /Health score/);
+});
+
+test("parseGitHubTarget recognizes common GitHub repository URLs", () => {
+  assert.deepEqual(parseGitHubTarget("https://github.com/octocat/Hello-World"), {
+    owner: "octocat",
+    repo: "Hello-World",
+    cloneUrl: "https://github.com/octocat/Hello-World.git",
+    webUrl: "https://github.com/octocat/Hello-World"
+  });
+  assert.deepEqual(parseGitHubTarget("git@github.com:octocat/Hello-World.git"), {
+    owner: "octocat",
+    repo: "Hello-World",
+    cloneUrl: "https://github.com/octocat/Hello-World.git",
+    webUrl: "https://github.com/octocat/Hello-World"
+  });
+  assert.equal(parseGitHubTarget("../local-project"), null);
+});
+
+test("renderPrioritySummary produces a grounded repair plan", async () => {
+  const root = await makeTempRepo({
+    "package.json": JSON.stringify({ name: "summary-app" }, null, 2)
+  });
+  const report = await scanRepository(root);
+  const summary = renderPrioritySummary(report);
+
+  assert.match(summary, /Priority Repair Plan/);
+  assert.match(summary, /AI Handoff Prompt/);
+  assert.match(summary, /README is missing/);
+  assert.match(summary, /README.md:1/);
+});
+
+test("fix command plans and applies only missing low-risk files", async () => {
+  const root = await makeTempRepo({
+    "package.json": JSON.stringify({
+      name: "fixable-app",
+      scripts: {
+        test: "node --test"
+      }
+    }, null, 2),
+    "src/index.js": "console.log(process.env.API_URL);\n"
+  });
+
+  const plan = await planFixes(root);
+  const plannedPaths = plan.actions.map((action) => action.path);
+
+  assert.ok(plannedPaths.includes(".env.example"));
+  assert.ok(plannedPaths.includes(".github/pull_request_template.md"));
+  assert.ok(plannedPaths.includes(".github/ISSUE_TEMPLATE/bug_report.md"));
+  assert.ok(plannedPaths.includes(".github/workflows/ci.yml"));
+
+  await applyFixes(plan, { write: true });
+
+  const envExample = await fs.readFile(path.join(root, ".env.example"), "utf8");
+  const workflow = await fs.readFile(path.join(root, ".github/workflows/ci.yml"), "utf8");
+
+  assert.match(envExample, /API_URL=/);
+  assert.match(workflow, /npm test/);
 });
 
 async function makeTempRepo(files) {

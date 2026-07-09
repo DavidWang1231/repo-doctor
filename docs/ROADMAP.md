@@ -10,16 +10,17 @@
 
 ## v0.2
 
-- PR comment formatter
-- Config file support
-- Rule severity overrides
-- Python and Go project-specific checks
-- Better dependency risk signals from lockfiles
+- GitHub URL scanning
+- PR comment support through the GitHub Action
+- Priority summaries from `report.json`
+- Low-risk file creation through `repo-doctor fix`
+- Static demo page in `docs/`
 
 ## v0.3
 
-- Optional AI narrative summary from `report.json`
-- Suggested patch generation for low-risk fixes
+- Config file support
+- Rule severity overrides
+- Optional hosted AI narrative summary from `report.json`
 - Sample benchmark suite over intentionally flawed repositories
 - Report screenshot automation
 

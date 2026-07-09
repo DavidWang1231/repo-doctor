@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Repo Doctor Demo</title>
+  <meta name="description" content="Repo Doctor scans repositories and generates evidence-based health reports for documentation, tests, CI, security, and maintainability.">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18212f;
+      --muted: #5d6778;
+      --paper: #f6f8fb;
+      --panel: #ffffff;
+      --line: #d9dee8;
+      --green: #16794c;
+      --blue: #2458c7;
+      --amber: #9a5b00;
+      --red: #b42318;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+
+    header,
+    main,
+    footer {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    header {
+      min-height: 92vh;
+      display: grid;
+      grid-template-columns: minmax(0, .85fr) minmax(360px, 1.15fr);
+      gap: 42px;
+      align-items: center;
+      padding: 36px 0;
+    }
+
+    nav {
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 10;
+      background: rgba(246, 248, 251, .92);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+
+    .nav-inner {
+      width: min(1120px, calc(100% - 32px));
+      height: 58px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      font-weight: 800;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .links {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .links a,
+    .button {
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 650;
+      font-size: .94rem;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: clamp(2.6rem, 6vw, 5.8rem);
+      line-height: .98;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: clamp(1.7rem, 3vw, 2.35rem);
+      letter-spacing: 0;
+    }
+
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: clamp(1.05rem, 2vw, 1.28rem);
+      max-width: 58ch;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 26px;
+    }
+
+    .primary {
+      background: var(--ink);
+      color: #ffffff;
+      border-color: var(--ink);
+    }
+
+    .preview {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 24px 70px rgba(23, 32, 42, .12);
+      overflow: hidden;
+    }
+
+    .window-bar {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcff;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #c8ceda;
+    }
+
+    .preview img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    section {
+      padding: 42px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      min-height: 150px;
+    }
+
+    .metric {
+      color: var(--green);
+      font-size: 2.1rem;
+      font-weight: 800;
+    }
+
+    pre {
+      margin: 0;
+      padding: 18px;
+      overflow: auto;
+      color: #f8fbff;
+      background: #17202a;
+      border-radius: 8px;
+      font-size: .95rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .grid > *,
+    .split > * {
+      min-width: 0;
+    }
+
+    .finding {
+      border-left: 4px solid var(--amber);
+    }
+
+    .fix {
+      border-left: 4px solid var(--blue);
+    }
+
+    footer {
+      padding: 34px 0 56px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 860px) {
+      header,
+      .split,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        min-height: auto;
+        padding-top: 96px;
+      }
+
+      .links a:not(.button) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a class="brand" href="https://github.com/DavidWang1231/repo-doctor">Repo Doctor</a>
+      <div class="links">
+        <a href="#checks">Checks</a>
+        <a href="#workflow">Workflow</a>
+        <a class="button" href="https://github.com/DavidWang1231/repo-doctor">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header>
+    <div>
+      <h1>Repo Doctor</h1>
+      <p class="lead">Scan a repository and get an evidence-based health report for docs, tests, CI, security hygiene, maintainability, and open-source readiness.</p>
+      <div class="hero-actions">
+        <a class="button primary" href="https://github.com/DavidWang1231/repo-doctor">View on GitHub</a>
+        <a class="button" href="#workflow">See commands</a>
+      </div>
+    </div>
+    <div class="preview" aria-label="Repo Doctor report preview">
+      <div class="window-bar">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+      <img src="./assets/report-preview.svg" alt="Repo Doctor report preview">
+    </div>
+  </header>
+
+  <main>
+    <section id="checks">
+      <h2>What It Checks</h2>
+      <div class="grid">
+        <article class="card">
+          <div class="metric">Docs</div>
+          <p>README setup, usage, testing, configuration, and script mismatch checks.</p>
+        </article>
+        <article class="card">
+          <div class="metric">CI</div>
+          <p>GitHub Actions presence, pull request validation, and test command detection.</p>
+        </article>
+        <article class="card">
+          <div class="metric">Risk</div>
+          <p>Committed env files, missing security policy, dynamic execution, and hard-coded secret patterns.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="workflow">
+      <h2>Workflow</h2>
+      <div class="split">
+        <div class="card">
+          <h3>Run a scan</h3>
+          <pre><code>node ./src/cli.js scan .
+node ./src/cli.js scan https://github.com/owner/repo
+node ./src/cli.js scan . --fail-under 75</code></pre>
+        </div>
+        <div class="card finding">
+          <h3>Evidence-based finding</h3>
+          <p><strong>README references package scripts that do not exist.</strong></p>
+          <p>Recommendation: add the script or update the README command.</p>
+          <p><code>README.md:42</code> <code>package.json:8</code></p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Built For Follow-Through</h2>
+      <div class="grid">
+        <article class="card fix">
+          <h3>PR comments</h3>
+          <p>Use the GitHub Action to publish the Markdown report on pull requests.</p>
+        </article>
+        <article class="card fix">
+          <h3>Priority summaries</h3>
+          <p>Generate a concise repair plan from <code>report.json</code> without inventing evidence.</p>
+        </article>
+        <article class="card fix">
+          <h3>Low-risk fixes</h3>
+          <p>Create missing templates, starter CI, and environment examples without overwriting files.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Repo Doctor is deterministic first and AI-ready second. Every recommendation starts with evidence.
+  </footer>
+</body>
+</html>

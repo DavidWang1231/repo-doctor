@@ -15,18 +15,35 @@ inputs:
     description: Optional minimum health score. The action fails when the score is lower.
     required: false
     default: ""
+  comment:
+    description: Comment on pull requests with the priority summary.
+    required: false
+    default: "false"
+  github-token:
+    description: GitHub token used when comment is true.
+    required: false
+    default: ""
 
 runs:
   using: composite
   steps:
     - name: Run Repo Doctor
       shell: bash
+      run: node "$GITHUB_ACTION_PATH/src/cli.js" scan "${{ inputs.path }}" --out "${{ inputs.output }}"
+    - name: Build priority summary
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/src/cli.js" summarize "${{ inputs.output }}/report.json" --out "${{ inputs.output }}/summary.md"
+    - name: Comment on pull request
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: gh pr comment "${{ github.event.pull_request.number }}" --body-file "${{ inputs.output }}/summary.md"
+    - name: Enforce score threshold
+      if: ${{ inputs.fail-under != '' }}
+      shell: bash
       run: |
-        if [ -n "${{ inputs.fail-under }}" ]; then
-          node "$GITHUB_ACTION_PATH/src/cli.js" scan "${{ inputs.path }}" --out "${{ inputs.output }}" --fail-under "${{ inputs.fail-under }}"
-        else
-          node "$GITHUB_ACTION_PATH/src/cli.js" scan "${{ inputs.path }}" --out "${{ inputs.output }}"
-        fi
+        node -e 'const fs = require("node:fs"); const report = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); const threshold = Number(process.argv[2]); if (report.score < threshold) { console.error("Repo Doctor score " + report.score + " is below fail-under threshold " + threshold + "."); process.exit(2); }' "${{ inputs.output }}/report.json" "${{ inputs.fail-under }}"
 
 branding:
   icon: activity

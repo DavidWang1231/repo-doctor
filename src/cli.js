@@ -2,7 +2,10 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { VERSION } from "./constants.js";
+import { applyFixes, planFixes } from "./fixes.js";
 import { scanRepository } from "./scanner.js";
+import { loadReport, renderPrioritySummary } from "./summarizer.js";
+import { resolveScanTarget } from "./target.js";
 import { renderHtml } from "./reporters/html.js";
 import { renderMarkdown } from "./reporters/markdown.js";
 
@@ -19,18 +22,34 @@ async function main(argv) {
     return 0;
   }
 
-  if (command !== "scan") {
-    console.error(`Unknown command: ${command}`);
-    printHelp();
-    return 1;
+  if (command === "scan") {
+    return runScan(rest);
   }
 
-  return runScan(rest);
+  if (command === "summarize") {
+    return runSummarize(rest);
+  }
+
+  if (command === "fix") {
+    return runFix(rest);
+  }
+
+  console.error(`Unknown command: ${command}`);
+  printHelp();
+  return 1;
 }
 
 async function runScan(args) {
   const options = parseScanArgs(args);
-  const report = await scanRepository(options.target);
+  const target = await resolveScanTarget(options.target);
+  let report;
+
+  try {
+    report = await scanRepository(target.rootDir, target.source);
+  } finally {
+    await target.cleanup();
+  }
+
   const outputDir = path.resolve(options.out);
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -58,6 +77,39 @@ async function runScan(args) {
   if (options.failUnder !== null && report.score < options.failUnder) {
     console.error(`Repo Doctor score ${report.score} is below fail-under threshold ${options.failUnder}.`);
     return 2;
+  }
+
+  return 0;
+}
+
+async function runSummarize(args) {
+  const options = parseSummarizeArgs(args);
+  const report = await loadReport(options.report);
+  const summary = renderPrioritySummary(report);
+  const outputPath = path.resolve(options.out);
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, summary);
+  console.log(`Priority summary written to ${outputPath}`);
+  return 0;
+}
+
+async function runFix(args) {
+  const options = parseFixArgs(args);
+  const plan = await planFixes(options.target);
+  const results = await applyFixes(plan, { write: options.write });
+
+  if (results.length === 0) {
+    console.log("No low-risk fixes are available.");
+    return 0;
+  }
+
+  console.log(options.write ? "Applied fixes:" : "Planned fixes:");
+  for (const result of results) {
+    console.log(`- ${result.path}: ${result.description}`);
+  }
+
+  if (!options.write) {
+    console.log("Run again with --write to create these files.");
   }
 
   return 0;
@@ -108,6 +160,57 @@ function parseScanArgs(args) {
   return options;
 }
 
+function parseSummarizeArgs(args) {
+  const options = {
+    report: "repo-doctor-report/report.json",
+    out: "repo-doctor-report/summary.md"
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--out" || arg === "-o") {
+      options.out = requireValue(args, ++index, arg);
+      continue;
+    }
+
+    if (arg.startsWith("-")) {
+      throw new Error(`Unknown option: ${arg}`);
+    }
+
+    options.report = arg;
+  }
+
+  return options;
+}
+
+function parseFixArgs(args) {
+  const options = {
+    target: ".",
+    write: false
+  };
+
+  for (const arg of args) {
+    if (arg === "--write") {
+      options.write = true;
+      continue;
+    }
+
+    if (arg === "--dry-run") {
+      options.write = false;
+      continue;
+    }
+
+    if (arg.startsWith("-")) {
+      throw new Error(`Unknown option: ${arg}`);
+    }
+
+    options.target = arg;
+  }
+
+  return options;
+}
+
 function requireValue(args, index, flag) {
   const value = args[index];
   if (!value || value.startsWith("-")) {
@@ -121,18 +224,24 @@ function printHelp() {
 
 Usage:
   repo-doctor scan [path] [options]
+  repo-doctor summarize [report.json] [options]
+  repo-doctor fix [path] [--write]
 
 Options:
   -o, --out <dir>         Output directory (default: repo-doctor-report)
   -f, --format <format>   all, json, md, markdown, or html (default: all)
       --fail-under <n>    Exit with code 2 when score is below n
+      --write             Create low-risk fix files for the fix command
   -h, --help              Show help
   -v, --version           Show version
 
 Examples:
   repo-doctor scan .
+  repo-doctor scan https://github.com/owner/repo
   repo-doctor scan ../my-app --format html --out doctor-report
   repo-doctor scan . --fail-under 75
+  repo-doctor summarize repo-doctor-report/report.json
+  repo-doctor fix . --write
 `);
 }
 
