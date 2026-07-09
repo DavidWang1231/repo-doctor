@@ -1,0 +1,33 @@
+name: Repo Doctor
+description: Evidence-based repository health checks for documentation, testing, CI, maintainability, security, and open-source readiness.
+author: Repo Doctor
+
+inputs:
+  path:
+    description: Repository path to scan.
+    required: false
+    default: "."
+  output:
+    description: Directory where report files will be written.
+    required: false
+    default: "repo-doctor-report"
+  fail-under:
+    description: Optional minimum health score. The action fails when the score is lower.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Run Repo Doctor
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.fail-under }}" ]; then
+          node "$GITHUB_ACTION_PATH/src/cli.js" scan "${{ inputs.path }}" --out "${{ inputs.output }}" --fail-under "${{ inputs.fail-under }}"
+        else
+          node "$GITHUB_ACTION_PATH/src/cli.js" scan "${{ inputs.path }}" --out "${{ inputs.output }}"
+        fi
+
+branding:
+  icon: activity
+  color: blue
