@@ -14,11 +14,11 @@ import {
 import { checkEnv, checkSecurityPatterns } from "./rules/security.js";
 import { checkMaintainability, checkTypeScript } from "./rules/maintainability.js";
 
-export async function runChecks({ rootDir, files }) {
+export async function runChecks({ rootDir, files, profileOverride = null }) {
   const findings = [];
   const strengths = [];
   const skipped = [];
-  const context = buildContext({ rootDir, files, findings, strengths, skipped });
+  const context = buildContext({ rootDir, files, findings, strengths, skipped, profileOverride });
 
   if (context.packageFile) {
     try {
@@ -53,7 +53,7 @@ export async function runChecks({ rootDir, files }) {
   };
 }
 
-function buildContext({ rootDir, files, findings, strengths, skipped }) {
+function buildContext({ rootDir, files, findings, strengths, skipped, profileOverride }) {
   const sourceFiles = files.filter((file) =>
     [".js", ".jsx", ".mjs", ".ts", ".tsx", ".py", ".go", ".rs", ".rb", ".php", ".java"].includes(file.extension)
   );
@@ -65,6 +65,7 @@ function buildContext({ rootDir, files, findings, strengths, skipped }) {
     strengths,
     skipped,
     profile: null,
+    profileOverride,
     packageFile: findFile(files, ["package.json"]),
     packageJson: null,
     readmeFile: files.find((file) => /^readme\.(md|txt)$/i.test(file.path)),
@@ -98,7 +99,10 @@ function runSecurityChecks(context) {
     ...context,
     sourceFiles: context.productionSourceFiles
   });
-  checkSecurityPatterns(context);
+  checkSecurityPatterns({
+    ...context,
+    sourceFiles: context.productionSourceFiles
+  });
 }
 
 function runMaintainabilityChecks(context) {

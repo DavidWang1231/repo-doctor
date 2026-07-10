@@ -1,27 +1,50 @@
 {
-  "name": "repo-doctor",
-  "version": "0.3.0",
+  "name": "@davidwang1231/repo-doctor",
+  "version": "0.4.0",
   "description": "Evidence-based repository health checks for real-world codebases.",
   "type": "module",
   "bin": {
-    "repo-doctor": "./src/cli.js"
+    "repo-doctor": "src/cli.js"
   },
   "scripts": {
-    "lint": "node --check src/cli.js && node --check src/one-click.js && node --check src/scanner.js && node --check src/checks.js && node --check src/file-system.js && node --check src/constants.js && node --check src/rule-utils.js && node --check src/profile.js && node --check src/scoring.js && node --check src/target.js && node --check src/summarizer.js && node --check src/fixes.js && node --check src/rules/project-hygiene.js && node --check src/rules/security.js && node --check src/rules/maintainability.js && node --check src/reporters/html.js && node --check src/reporters/markdown.js && node --check test/scanner.test.js",
+    "lint": "node --check src/cli.js && node --check src/one-click.js && node --check src/web-server.js && node --check src/ai-prompt.js && node --check src/scanner.js && node --check src/checks.js && node --check src/file-system.js && node --check src/constants.js && node --check src/rule-utils.js && node --check src/profile.js && node --check src/scoring.js && node --check src/target.js && node --check src/summarizer.js && node --check src/fixes.js && node --check src/rules/project-hygiene.js && node --check src/rules/security.js && node --check src/rules/maintainability.js && node --check src/reporters/html.js && node --check src/reporters/markdown.js && node --check test/scanner.test.js",
     "scan": "node ./src/cli.js scan .",
     "one-click": "node ./src/one-click.js",
+    "web": "node ./src/web-server.js",
     "test": "node --test",
-    "doctor": "node ./src/cli.js scan . --out examples/self-scan"
+    "doctor": "node ./src/cli.js scan . --out examples/self-scan",
+    "prepublishOnly": "npm run lint && npm test"
   },
   "keywords": [
     "repository-health",
     "code-quality",
     "github-action",
     "software-engineering",
-    "ai-ready"
+    "ai-ready",
+    "repository-scanner",
+    "github"
   ],
-  "author": "",
+  "author": "David Wang",
   "license": "MIT",
+  "homepage": "https://github.com/DavidWang1231/repo-doctor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DavidWang1231/repo-doctor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DavidWang1231/repo-doctor/issues"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "action.yml",
+    "docs/assets/report-preview.svg",
+    "Repo Doctor.command",
+    "Repo Doctor.cmd",
+    "Repo Doctor Web.command",
+    "Repo Doctor Web.cmd"
+  ],
   "engines": {
     "node": ">=20"
   }

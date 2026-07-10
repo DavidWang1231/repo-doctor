@@ -1,4 +1,25 @@
-export function detectProjectProfile({ files, packageJson }) {
+export const PROJECT_PROFILE_LABELS = {
+  "static-game": "Static Game / GitHub Pages Demo",
+  "static-site": "Static Site",
+  "cli-tool": "CLI Tool",
+  "web-app": "Web App",
+  "backend-service": "Backend Service",
+  library: "Reusable Library / Package",
+  "python-project": "Python Project",
+  "docs-only": "Documentation Repository",
+  "node-project": "Node Project",
+  generic: "Generic Repository"
+};
+
+export function listProjectProfiles() {
+  return Object.entries(PROJECT_PROFILE_LABELS).map(([id, label]) => ({ id, label }));
+}
+
+export function detectProjectProfile({ files, packageJson, profileOverride }) {
+  if (profileOverride) {
+    return buildProfile(profileOverride, [`manual override: ${profileOverride}`], { override: true });
+  }
+
   const indexHtml = files.find((file) => file.path.toLowerCase() === "index.html");
   const htmlFiles = files.filter((file) => file.extension === ".html");
   const markdownFiles = files.filter((file) => file.extension === ".md");
@@ -28,81 +49,55 @@ export function detectProjectProfile({ files, packageJson }) {
   }
 
   if (isDocsOnly({ files, markdownFiles, sourceFiles, htmlFiles })) {
-    return withPolicy({
-      id: "docs-only",
-      label: "Documentation Repository",
-      rationale: ["mostly Markdown content", "no application entry point detected"]
-    });
+    return buildProfile("docs-only", ["mostly Markdown content", "no application entry point detected"]);
   }
 
   if (indexHtml && hasGameSignals(files) && !hasBuildSystem(packageJson)) {
-    return withPolicy({
-      id: "static-game",
-      label: "Static Game / GitHub Pages Demo",
-      rationale: signals
-    });
+    return buildProfile("static-game", signals);
   }
 
   if (indexHtml && htmlFiles.length > 0 && !hasBuildSystem(packageJson)) {
-    return withPolicy({
-      id: "static-site",
-      label: "Static Site",
-      rationale: signals
-    });
+    return buildProfile("static-site", signals);
   }
 
   if (packageJson?.bin) {
-    return withPolicy({
-      id: "cli-tool",
-      label: "CLI Tool",
-      rationale: ["package.json bin entry"]
-    });
+    return buildProfile("cli-tool", ["package.json bin entry"]);
   }
 
   if (hasBackendSignals(files, packageScripts, packageDependencies)) {
-    return withPolicy({
-      id: "backend-service",
-      label: "Backend Service",
-      rationale: ["server framework, API route, or server entry point detected"]
-    });
+    return buildProfile("backend-service", ["server framework, API route, or server entry point detected"]);
   }
 
   if (hasWebAppSignals(packageScripts, packageDependencies)) {
-    return withPolicy({
-      id: "web-app",
-      label: "Web App",
-      rationale: ["frontend framework or build/dev script"]
-    });
+    return buildProfile("web-app", ["frontend framework or build/dev script"]);
   }
 
   if (hasLibrarySignals(packageJson)) {
-    return withPolicy({
-      id: "library",
-      label: "Reusable Library / Package",
-      rationale: ["package export, main, module, or types entry detected"]
-    });
+    return buildProfile("library", ["package export, main, module, or types entry detected"]);
   }
 
   if (pythonProjectFile || files.some((file) => file.extension === ".py")) {
-    return withPolicy({
-      id: "python-project",
-      label: "Python Project",
-      rationale: [pythonProjectFile ? pythonProjectFile.path : "Python source files"]
-    });
+    return buildProfile("python-project", [pythonProjectFile ? pythonProjectFile.path : "Python source files"]);
   }
 
   if (packageJson) {
-    return withPolicy({
-      id: "node-project",
-      label: "Node Project",
-      rationale: ["package.json present"]
-    });
+    return buildProfile("node-project", ["package.json present"]);
+  }
+
+  return buildProfile("generic", ["no stronger project type detected"]);
+}
+
+function buildProfile(id, rationale, extra = {}) {
+  const label = PROJECT_PROFILE_LABELS[id];
+  if (!label) {
+    throw new Error(`Unknown project profile: ${id}. Expected one of: ${Object.keys(PROJECT_PROFILE_LABELS).join(", ")}.`);
   }
 
   return withPolicy({
-    id: "generic",
-    label: "Generic Repository",
-    rationale: ["no stronger project type detected"]
+    id,
+    label,
+    rationale,
+    ...extra
   });
 }
 

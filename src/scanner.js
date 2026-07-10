@@ -3,11 +3,11 @@ import { VERSION } from "./constants.js";
 import { runChecks } from "./checks.js";
 import { walkRepository } from "./file-system.js";
 
-export async function scanRepository(targetPath = ".", source = null) {
+export async function scanRepository(targetPath = ".", source = null, options = {}) {
   const rootDir = path.resolve(targetPath);
   const files = await walkRepository(rootDir);
   const stats = buildStats(files);
-  const checks = await runChecks({ rootDir, files });
+  const checks = await runChecks({ rootDir, files, profileOverride: options.profile ?? null });
 
   return {
     tool: {

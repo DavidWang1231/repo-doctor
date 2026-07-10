@@ -6,7 +6,7 @@ Repo Doctor scans a local repository and produces a prioritized health report co
 
 ![Repo Doctor report preview](docs/assets/report-preview.svg)
 
-Current v0.3 runs without runtime dependencies. The scanner is deterministic first, AI-ready second: every finding is backed by structured evidence in `report.json`, so summaries can explain and prioritize issues without inventing facts.
+Current v0.4 runs without runtime dependencies. The scanner is deterministic first, AI-ready second: every finding is backed by structured evidence in `report.json`, so summaries can explain and prioritize issues without inventing facts.
 
 Live demo page: https://davidwang1231.github.io/repo-doctor/
 
@@ -26,7 +26,55 @@ Repo Doctor takes a smaller, sharper wedge: can a maintainer or contributor quic
 
 ### Installation
 
-Clone the repository or download it from GitHub. Repo Doctor currently runs directly from source and does not need package installation.
+Install from npm:
+
+```bash
+npm install -g @davidwang1231/repo-doctor
+```
+
+Then run:
+
+```bash
+repo-doctor scan https://github.com/owner/repo
+```
+
+You can also clone or download the repository from GitHub and run it directly from source.
+
+### Web Mode
+
+Start the local web scanner:
+
+```bash
+repo-doctor web
+```
+
+Or from source:
+
+```bash
+npm run web
+```
+
+This opens a browser page where you can paste a local project path or a public GitHub URL, run a scan, and download:
+
+- `report.html`
+- `report.md`
+- `report.json`
+- `summary.md`
+- `fix-prompt.md`
+
+On macOS, you can also double-click:
+
+```text
+Repo Doctor Web.command
+```
+
+On Windows, double-click:
+
+```text
+Repo Doctor Web.cmd
+```
+
+Web mode runs on your own machine by default at `127.0.0.1`. It is a local UI over the same scanner used by the CLI.
 
 ### One-Click Mode
 
@@ -96,6 +144,18 @@ Generate a priority summary from the structured report:
 
 ```bash
 node ./src/cli.js summarize repo-doctor-report/report.json
+```
+
+Export a prompt for an AI coding assistant:
+
+```bash
+node ./src/cli.js prompt repo-doctor-report/report.json
+```
+
+Override project type when automatic detection is wrong:
+
+```bash
+node ./src/cli.js scan . --profile static-game
 ```
 
 Preview low-risk fixes:
@@ -176,6 +236,8 @@ Evidence:
 - package.json:8
 ```
 
+The AI fix prompt is designed for handing the report to another coding agent. It tells the agent to use only Repo Doctor evidence, inspect referenced files first, skip checks that are not relevant for the detected project type, and make small reviewable fixes.
+
 ## GitHub Action
 
 Use it in another repository:
@@ -198,7 +260,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DavidWang1231/repo-doctor@v0.3.0
+      - uses: DavidWang1231/repo-doctor@v0.4.0
         with:
           path: "."
           output: "repo-doctor-report"
@@ -209,7 +271,7 @@ jobs:
 
 ## Configuration
 
-v0.3 intentionally has no configuration file. The rule set is fixed while the project proves the core workflow.
+v0.4 intentionally has no configuration file. The rule set is fixed while the project proves the core workflow. If auto-detection gets the project type wrong, use `--profile <id>` or the Web Mode project-type dropdown.
 
 Planned configuration support:
 

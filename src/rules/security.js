@@ -1,5 +1,6 @@
 import { evidence, findLine } from "../file-system.js";
-import { finding, strength } from "../rule-utils.js";
+import { isStaticShowcaseProfile } from "../profile.js";
+import { finding, skipped, strength } from "../rule-utils.js";
 
 const ENV_REFERENCE_PATTERN = /process\.env(?:\.|\[)|os\.environ(?:\.|\[|\.get)|Deno\.env\.get|getenv\(/;
 
@@ -56,9 +57,10 @@ export function checkEnv({ files, sourceFiles, envExample, envFiles, findings, s
   }
 }
 
-export async function checkSecurityPatterns({ sourceFiles, findings }) {
+export async function checkSecurityPatterns({ sourceFiles, profile, findings, skipped: skippedItems }) {
   const secretMatches = [];
   const riskyRuntimeMatches = [];
+  const skippedRuntimeMatches = [];
 
   for (const file of sourceFiles) {
     const lines = file.content.split(/\r?\n/);
@@ -68,7 +70,12 @@ export async function checkSecurityPatterns({ sourceFiles, findings }) {
       }
 
       if (/\beval\s*\(|new Function\s*\(|child_process\.exec\s*\(/.test(line)) {
-        riskyRuntimeMatches.push(evidence(file, index + 1, "Dynamic execution pattern."));
+        const entry = evidence(file, index + 1, "Dynamic execution pattern.");
+        if (isStaticShowcaseProfile(profile) && isLocalToolingFile(file)) {
+          skippedRuntimeMatches.push(entry);
+        } else {
+          riskyRuntimeMatches.push(entry);
+        }
       }
     });
   }
@@ -96,4 +103,18 @@ export async function checkSecurityPatterns({ sourceFiles, findings }) {
       evidence: riskyRuntimeMatches.slice(0, 5)
     }));
   }
+
+  if (skippedRuntimeMatches.length > 0) {
+    skippedItems.push(skipped({
+      id: "dynamic-tooling-not-runtime",
+      title: "Dynamic execution in local tooling not treated as runtime risk",
+      category: "security",
+      reason: "This profile is a static browser project, so dynamic execution in scripts or tools is not scored like code shipped to users. Review it manually if it handles untrusted input.",
+      evidence: skippedRuntimeMatches.slice(0, 5)
+    }));
+  }
+}
+
+function isLocalToolingFile(file) {
+  return /^(scripts|tools|tasks|bin|\.github)\//i.test(file.path);
 }

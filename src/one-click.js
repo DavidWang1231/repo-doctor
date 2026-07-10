@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import readline from "node:readline/promises";
+import { renderFixPrompt } from "./ai-prompt.js";
 import { planFixes } from "./fixes.js";
 import { scanRepository } from "./scanner.js";
 import { renderPrioritySummary } from "./summarizer.js";
@@ -98,6 +99,7 @@ async function writeReports(report) {
   await fs.writeFile(path.join(outputDir, "report.md"), renderMarkdown(report));
   await fs.writeFile(path.join(outputDir, "report.html"), renderHtml(report));
   await fs.writeFile(path.join(outputDir, "summary.md"), renderPrioritySummary(report));
+  await fs.writeFile(path.join(outputDir, "fix-prompt.md"), renderFixPrompt(report));
   return outputDir;
 }
 
@@ -168,6 +170,7 @@ function printDone(outputDir) {
   console.log("");
   console.log("Also generated:");
   console.log(path.join(outputDir, "summary.md"));
+  console.log(path.join(outputDir, "fix-prompt.md"));
   console.log("");
 }
 

@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { renderFixPrompt } from "./ai-prompt.js";
 import { VERSION } from "./constants.js";
 import { applyFixes, planFixes } from "./fixes.js";
+import { listProjectProfiles } from "./profile.js";
 import { scanRepository } from "./scanner.js";
 import { loadReport, renderPrioritySummary } from "./summarizer.js";
 import { resolveScanTarget } from "./target.js";
+import { parseWebArgs, startWebServer } from "./web-server.js";
 import { renderHtml } from "./reporters/html.js";
 import { renderMarkdown } from "./reporters/markdown.js";
 
@@ -30,8 +33,16 @@ async function main(argv) {
     return runSummarize(rest);
   }
 
+  if (command === "prompt") {
+    return runPrompt(rest);
+  }
+
   if (command === "fix") {
     return runFix(rest);
+  }
+
+  if (command === "web") {
+    return runWeb(rest);
   }
 
   console.error(`Unknown command: ${command}`);
@@ -45,7 +56,7 @@ async function runScan(args) {
   let report;
 
   try {
-    report = await scanRepository(target.rootDir, target.source);
+    report = await scanRepository(target.rootDir, target.source, { profile: options.profile });
   } finally {
     await target.cleanup();
   }
@@ -93,6 +104,17 @@ async function runSummarize(args) {
   return 0;
 }
 
+async function runPrompt(args) {
+  const options = parsePromptArgs(args);
+  const report = await loadReport(options.report);
+  const prompt = renderFixPrompt(report);
+  const outputPath = path.resolve(options.out);
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, prompt);
+  console.log(`AI fix prompt written to ${outputPath}`);
+  return 0;
+}
+
 async function runFix(args) {
   const options = parseFixArgs(args);
   const plan = await planFixes(options.target);
@@ -115,12 +137,18 @@ async function runFix(args) {
   return 0;
 }
 
+async function runWeb(args) {
+  await startWebServer(parseWebArgs(args));
+  return 0;
+}
+
 function parseScanArgs(args) {
   const options = {
     target: ".",
     out: "repo-doctor-report",
     format: "all",
-    failUnder: null
+    failUnder: null,
+    profile: null
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -146,6 +174,11 @@ function parseScanArgs(args) {
       continue;
     }
 
+    if (arg === "--profile") {
+      options.profile = requireValue(args, ++index, arg);
+      continue;
+    }
+
     if (arg.startsWith("-")) {
       throw new Error(`Unknown option: ${arg}`);
     }
@@ -157,6 +190,8 @@ function parseScanArgs(args) {
     throw new Error("--format must be one of: all, json, md, markdown, html.");
   }
 
+  validateProfileOption(options.profile);
+
   return options;
 }
 
@@ -164,6 +199,30 @@ function parseSummarizeArgs(args) {
   const options = {
     report: "repo-doctor-report/report.json",
     out: "repo-doctor-report/summary.md"
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--out" || arg === "-o") {
+      options.out = requireValue(args, ++index, arg);
+      continue;
+    }
+
+    if (arg.startsWith("-")) {
+      throw new Error(`Unknown option: ${arg}`);
+    }
+
+    options.report = arg;
+  }
+
+  return options;
+}
+
+function parsePromptArgs(args) {
+  const options = {
+    report: "repo-doctor-report/report.json",
+    out: "repo-doctor-report/fix-prompt.md"
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -219,19 +278,36 @@ function requireValue(args, index, flag) {
   return value;
 }
 
+function validateProfileOption(profile) {
+  if (!profile) {
+    return;
+  }
+
+  const profileIds = listProjectProfiles().map((item) => item.id);
+  if (!profileIds.includes(profile)) {
+    throw new Error(`--profile must be one of: ${profileIds.join(", ")}.`);
+  }
+}
+
 function printHelp() {
   console.log(`Repo Doctor ${VERSION}
 
 Usage:
   repo-doctor scan [path] [options]
   repo-doctor summarize [report.json] [options]
+  repo-doctor prompt [report.json] [options]
   repo-doctor fix [path] [--write]
+  repo-doctor web [options]
 
 Options:
   -o, --out <dir>         Output directory (default: repo-doctor-report)
   -f, --format <format>   all, json, md, markdown, or html (default: all)
       --fail-under <n>    Exit with code 2 when score is below n
+      --profile <id>      Override detected project type
       --write             Create low-risk fix files for the fix command
+      --port <n>           Web command port (default: 5177)
+      --host <host>        Web command host (default: 127.0.0.1)
+      --no-open            Do not open the browser for the web command
   -h, --help              Show help
   -v, --version           Show version
 
@@ -239,9 +315,15 @@ Examples:
   repo-doctor scan .
   repo-doctor scan https://github.com/owner/repo
   repo-doctor scan ../my-app --format html --out doctor-report
+  repo-doctor scan . --profile static-game
   repo-doctor scan . --fail-under 75
   repo-doctor summarize repo-doctor-report/report.json
+  repo-doctor prompt repo-doctor-report/report.json
   repo-doctor fix . --write
+  repo-doctor web
+
+Profiles:
+  ${listProjectProfiles().map((profile) => profile.id).join(", ")}
 `);
 }
 

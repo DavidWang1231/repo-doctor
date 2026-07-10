@@ -3,12 +3,14 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { renderFixPrompt } from "../src/ai-prompt.js";
 import { applyFixes, planFixes } from "../src/fixes.js";
 import { scanRepository } from "../src/scanner.js";
 import { renderPrioritySummary } from "../src/summarizer.js";
 import { parseGitHubTarget } from "../src/target.js";
 import { renderMarkdown } from "../src/reporters/markdown.js";
 import { renderHtml } from "../src/reporters/html.js";
+import { scanForWeb } from "../src/web-server.js";
 
 test("scanRepository reports missing project hygiene files", async () => {
   const root = await makeTempRepo({
@@ -103,6 +105,7 @@ test("scanRepository applies a lighter profile to static canvas games", async ()
     ].join("\n"),
     "LICENSE": "MIT\n",
     ".gitignore": ".DS_Store\n.claude/\n",
+    "scripts/capture.mjs": "import child_process from 'node:child_process';\nchild_process.exec('node -v');\n",
     "index.html": [
       "<!doctype html>",
       "<canvas id=\"game\"></canvas>",
@@ -127,11 +130,13 @@ test("scanRepository applies a lighter profile to static canvas games", async ()
   assert.ok(report.score >= 85);
   assert.ok(ids.includes("static-syntax-workflow-missing"));
   assert.ok(!ids.includes("tests-missing"));
+  assert.ok(!ids.includes("dynamic-execution"));
   assert.ok(!ids.includes("contributing-missing"));
   assert.ok(!ids.includes("security-policy-missing"));
   assert.ok(skippedIds.includes("unit-tests-not-required"));
   assert.ok(skippedIds.includes("contributing-not-required"));
   assert.ok(skippedIds.includes("security-policy-not-required"));
+  assert.ok(skippedIds.includes("dynamic-tooling-not-runtime"));
 });
 
 test("scanRepository detects common non-static project profiles", async () => {
@@ -180,6 +185,21 @@ test("scanRepository detects common non-static project profiles", async () => {
   assert.ok(libraryReport.findings.some((finding) => finding.id === "tests-missing" && finding.severity === "critical"));
 });
 
+test("scanRepository accepts a manual project profile override", async () => {
+  const root = await makeTempRepo({
+    "README.md": "# Small page\n\nOpen index.html locally.\n",
+    "index.html": "<!doctype html><h1>Hello</h1>\n"
+  });
+
+  const report = await scanRepository(root, null, { profile: "static-game" });
+
+  assert.equal(report.project.profile.id, "static-game");
+  assert.equal(report.project.profile.override, true);
+  assert.ok(report.project.profile.rationale.includes("manual override: static-game"));
+  assert.ok(!report.findings.some((finding) => finding.id === "tests-missing"));
+  assert.ok(report.skipped.some((item) => item.id === "unit-tests-not-required"));
+});
+
 test("reporters render evidence-bearing output", async () => {
   const root = await makeTempRepo({
     "package.json": JSON.stringify({ name: "render-app" }, null, 2)
@@ -222,6 +242,35 @@ test("renderPrioritySummary produces a grounded repair plan", async () => {
   assert.match(summary, /AI Handoff Prompt/);
   assert.match(summary, /README is missing/);
   assert.match(summary, /README.md:1/);
+});
+
+test("renderFixPrompt produces a copyable AI repair prompt", async () => {
+  const root = await makeTempRepo({
+    "package.json": JSON.stringify({ name: "prompt-app" }, null, 2)
+  });
+  const report = await scanRepository(root);
+  const prompt = renderFixPrompt(report);
+
+  assert.match(prompt, /AI Fix Prompt/);
+  assert.match(prompt, /Use only the findings/);
+  assert.match(prompt, /Project: prompt-app/);
+  assert.match(prompt, /Evidence: README.md:1/);
+});
+
+test("scanForWeb returns report downloads for the browser UI", async () => {
+  const root = await makeTempRepo({
+    "README.md": "# Web scan app\n\n## Usage\n\nRun it.\n",
+    "index.html": "<!doctype html><h1>Hello</h1>\n"
+  });
+
+  const result = await scanForWeb({ target: root, profile: "static-site" });
+
+  assert.equal(result.report.project.profile.id, "static-site");
+  assert.match(result.downloads.html, /Repo Doctor Report/);
+  assert.match(result.downloads.markdown, /Repo Doctor Report/);
+  assert.match(result.downloads.json, /"score"/);
+  assert.match(result.downloads.summary, /Priority Summary/);
+  assert.match(result.downloads.fixPrompt, /AI Fix Prompt/);
 });
 
 test("fix command plans and applies only missing low-risk files", async () => {
