@@ -200,6 +200,55 @@ test("scanRepository accepts a manual project profile override", async () => {
   assert.ok(report.skipped.some((item) => item.id === "unit-tests-not-required"));
 });
 
+test("large files do not lose points from line count alone", async () => {
+  const gameRoot = await makeTempRepo({
+    "README.md": "# Large game\n\nPlay in the browser.\n\n## Run locally\n\nOpen index.html.\n",
+    "index.html": "<!doctype html><canvas id=\"game\"></canvas><script src=\"game.js\"></script>\n",
+    "game.js": [
+      "const canvas = document.querySelector('canvas');",
+      "const ctx = canvas.getContext('2d');",
+      "let player = {}; let enemy = {}; let score = 0;",
+      "function loop() { requestAnimationFrame(loop); }",
+      ...Array.from({ length: 1100 }, (_, index) => `// game step ${index}`)
+    ].join("\n")
+  });
+
+  const report = await scanRepository(gameRoot);
+
+  assert.equal(report.project.profile.id, "static-game");
+  assert.ok(!report.findings.some((item) => item.id === "large-source-files"));
+  assert.ok(!report.findings.some((item) => item.id === "huge-source-files"));
+  assert.ok(report.skipped.some((item) => item.id === "large-source-files-context-only"));
+});
+
+test("very large mixed-responsibility files produce only a warning", async () => {
+  const root = await makeTempRepo({
+    "package.json": JSON.stringify({
+      name: "large-service",
+      dependencies: { express: "latest" }
+    }),
+    "server.js": [
+      "import express from 'express';",
+      "import { readFile } from 'node:fs/promises';",
+      "const app = express();",
+      "app.get('/data', async (_request, response) => {",
+      "  const data = JSON.parse(await readFile('data.json', 'utf8'));",
+      "  response.json(data);",
+      "});",
+      "app.listen(3000);",
+      ...Array.from({ length: 1100 }, (_, index) => `// service step ${index}`)
+    ].join("\n")
+  });
+
+  const report = await scanRepository(root);
+  const finding = report.findings.find((item) => item.id === "large-source-files");
+
+  assert.equal(report.project.profile.id, "backend-service");
+  assert.equal(finding?.severity, "warning");
+  assert.match(finding?.summary ?? "", /File size alone is not treated as a defect/);
+  assert.ok(!report.findings.some((item) => item.id === "huge-source-files"));
+});
+
 test("reporters render evidence-bearing output", async () => {
   const root = await makeTempRepo({
     "package.json": JSON.stringify({ name: "render-app" }, null, 2)

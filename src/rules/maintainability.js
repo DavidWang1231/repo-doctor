@@ -2,31 +2,8 @@ import path from "node:path";
 import { evidence, findFile, findLine } from "../file-system.js";
 import { finding, strength } from "../rule-utils.js";
 
-export function checkMaintainability({ files, sourceFiles, findings, strengths }) {
-  const largeFiles = sourceFiles.filter((file) => file.lines > 500);
-  const hugeFiles = sourceFiles.filter((file) => file.lines > 1000);
-
-  if (hugeFiles.length > 0) {
-    findings.push(finding({
-      id: "huge-source-files",
-      title: "Very large source files detected",
-      severity: "critical",
-      category: "maintainability",
-      summary: `${hugeFiles.length} source file(s) exceed 1000 lines.`,
-      recommendation: "Split very large files around cohesive responsibilities and add tests before refactoring.",
-      evidence: hugeFiles.slice(0, 5).map((file) => evidence(file, 1, `${file.lines} lines`))
-    }));
-  } else if (largeFiles.length > 0) {
-    findings.push(finding({
-      id: "large-source-files",
-      title: "Large source files detected",
-      severity: "warning",
-      category: "maintainability",
-      summary: `${largeFiles.length} source file(s) exceed 500 lines.`,
-      recommendation: "Review large files for separable modules, especially if they combine IO, parsing, and rendering.",
-      evidence: largeFiles.slice(0, 5).map((file) => evidence(file, 1, `${file.lines} lines`))
-    }));
-  }
+export function checkMaintainability({ files, sourceFiles, profile, findings, strengths, skipped }) {
+  checkLargeSourceFiles({ sourceFiles, profile, findings, skipped });
 
   const todoMatches = [];
   for (const file of sourceFiles) {
@@ -66,6 +43,70 @@ export function checkMaintainability({ files, sourceFiles, findings, strengths }
       evidence: [evidence([...topLevelDirs].find((dir) => ["src", "lib", "packages"].includes(dir)) + "/", 1)]
     }));
   }
+}
+
+function checkLargeSourceFiles({ sourceFiles, profile, findings, skipped }) {
+  const largeFiles = sourceFiles
+    .filter((file) => file.lines > 500)
+    .filter((file) => !isGeneratedOrMinified(file));
+
+  if (largeFiles.length === 0) {
+    return;
+  }
+
+  const mixedResponsibilityFiles = largeFiles
+    .filter((file) => file.lines > 1000)
+    .map((file) => ({ file, concerns: detectConcerns(file) }))
+    .filter(({ concerns }) => concerns.length >= 2);
+
+  if (!["static-game", "static-site", "docs-only"].includes(profile?.id) && mixedResponsibilityFiles.length > 0) {
+    findings.push(finding({
+      id: "large-source-files",
+      title: "Very large files may mix multiple responsibilities",
+      severity: "warning",
+      category: "maintainability",
+      summary: `${mixedResponsibilityFiles.length} source file(s) exceed 1000 lines and contain signals from multiple responsibility areas. File size alone is not treated as a defect.`,
+      recommendation: "Review whether these responsibilities change independently. Split only where a clear module boundary would make changes safer.",
+      evidence: mixedResponsibilityFiles.slice(0, 5).map(({ file, concerns }) =>
+        evidence(file, 1, `${file.lines} lines; signals: ${concerns.join(", ")}`)
+      )
+    }));
+  }
+
+  const findingPaths = new Set(mixedResponsibilityFiles.map(({ file }) => file.path));
+  const contextOnlyFiles = largeFiles.filter((file) => !findingPaths.has(file.path));
+
+  if (contextOnlyFiles.length > 0 || ["static-game", "static-site", "docs-only"].includes(profile?.id)) {
+    const observedFiles = ["static-game", "static-site", "docs-only"].includes(profile?.id)
+      ? largeFiles
+      : contextOnlyFiles;
+
+    skipped.push({
+      id: "large-source-files-context-only",
+      title: "Large files treated as context only",
+      reason: `${observedFiles.length} source file(s) exceed 500 lines, but line count alone is not evidence of poor maintainability and does not affect the score.`
+    });
+  }
+}
+
+function detectConcerns(file) {
+  const content = file.content;
+  const concernPatterns = [
+    ["UI/rendering", /\b(?:document|window|render|component|canvas|getContext)\b|<\w+[\s>]/i],
+    ["network/API", /\b(?:fetch|axios|request|response|router|route|listen)\b|https?:\/\//i],
+    ["filesystem/process", /\b(?:readFile|writeFile|createReadStream|process\.argv|child_process|subprocess)\b/i],
+    ["database/persistence", /\b(?:database|repository|query|transaction|SELECT|INSERT|UPDATE|DELETE)\b/i],
+    ["authentication", /\b(?:authenticate|authorization|jwt|session|password|oauth)\b/i],
+    ["parsing/serialization", /\b(?:parse|parser|tokenize|serialize|deserialize|JSON\.parse|JSON\.stringify)\b/i]
+  ];
+
+  return concernPatterns
+    .filter(([, pattern]) => pattern.test(content))
+    .map(([label]) => label);
+}
+
+function isGeneratedOrMinified(file) {
+  return /(^|\/)(?:generated|gen)(\/|$)|(?:\.min|\.generated|\.bundle)\.[^.]+$/i.test(file.path);
 }
 
 export function checkTypeScript({ rootDir, files, findings, strengths }) {

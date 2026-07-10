@@ -178,7 +178,7 @@ node ./src/cli.js fix . --write
 - license, contribution guide, security policy, and `.gitignore`
 - committed `.env` files and missing `.env.example`
 - possible hard-coded secrets and dynamic execution patterns
-- large source files and TODO/FIXME debt
+- very large files that also show signals of mixed responsibilities, plus TODO/FIXME debt
 - Docker local workflow hints
 - TypeScript configuration basics
 
@@ -260,7 +260,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DavidWang1231/repo-doctor@v0.4.0
+      - uses: DavidWang1231/repo-doctor@v0.4.1
         with:
           path: "."
           output: "repo-doctor-report"
