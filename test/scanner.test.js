@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 import { renderFixPrompt } from "../src/ai-prompt.js";
 import { applyFixes, planFixes } from "../src/fixes.js";
 import { scanRepository } from "../src/scanner.js";
@@ -264,6 +264,32 @@ test("reporters render evidence-bearing output", async () => {
   assert.match(html, /Health score/);
 });
 
+test("security patterns cover .php and .cjs source files", async () => {
+  const root = await makeTempRepo({
+    "README.md": "# Mixed app\n\n## Usage\n\nRun it.\n",
+    "handler.php": "<?php $password = \"abcdefghijklmnopqrstuv12\"; eval($input);\n",
+    "worker.cjs": "eval(payload);\n"
+  });
+
+  const report = await scanRepository(root);
+  const ids = report.findings.map((finding) => finding.id);
+
+  assert.ok(ids.includes("possible-secret"));
+  assert.ok(ids.includes("dynamic-execution"));
+});
+
+test("weak keyword matches alone do not classify a repo as a static game", async () => {
+  const root = await makeTempRepo({
+    "README.md": "# Music player\n\n## Usage\n\nOpen index.html.\n",
+    "index.html": "<!doctype html><script src=\"player.js\"></script>\n",
+    "player.js": "const player = {}; let score = 0; let wave = 'sine'; document.addEventListener('keydown', () => {});\n"
+  });
+
+  const report = await scanRepository(root);
+
+  assert.notEqual(report.project.profile.id, "static-game");
+});
+
 test("parseGitHubTarget recognizes common GitHub repository URLs", () => {
   assert.deepEqual(parseGitHubTarget("https://github.com/octocat/Hello-World"), {
     owner: "octocat",
@@ -278,6 +304,8 @@ test("parseGitHubTarget recognizes common GitHub repository URLs", () => {
     webUrl: "https://github.com/octocat/Hello-World"
   });
   assert.equal(parseGitHubTarget("../local-project"), null);
+  assert.equal(parseGitHubTarget("https://github.com/owner/.."), null);
+  assert.equal(parseGitHubTarget("https://github.com/../repo"), null);
 });
 
 test("renderPrioritySummary produces a grounded repair plan", async () => {
@@ -350,8 +378,15 @@ test("fix command plans and applies only missing low-risk files", async () => {
   assert.match(workflow, /npm test/);
 });
 
+const tempRoots = [];
+
+after(async () => {
+  await Promise.all(tempRoots.map((root) => fs.rm(root, { recursive: true, force: true })));
+});
+
 async function makeTempRepo(files) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "repo-doctor-test-"));
+  tempRoots.push(root);
 
   for (const [relativePath, content] of Object.entries(files)) {
     const fullPath = path.join(root, relativePath);

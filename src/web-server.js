@@ -19,9 +19,14 @@ const DEFAULT_PORT = 5177;
 const DEFAULT_HOST = "127.0.0.1";
 const WEB_UI_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "web-ui.html");
 
-export function createWebServer() {
+export function createWebServer({ host = DEFAULT_HOST } = {}) {
   return http.createServer(async (request, response) => {
     try {
+      if (!isAllowedRequest(request, host)) {
+        sendJson(response, { error: "Forbidden: request host or origin is not allowed." }, 403);
+        return;
+      }
+
       if (request.method === "GET" && request.url === "/") {
         sendHtml(response, await renderWebApp());
         return;
@@ -74,7 +79,7 @@ export async function scanForWeb({ target = ".", profile = null } = {}) {
 }
 
 export async function startWebServer({ host = DEFAULT_HOST, port = DEFAULT_PORT, open = true } = {}) {
-  const server = createWebServer();
+  const server = createWebServer({ host });
   const actualPort = await listenWithFallback(server, { host, port });
   const url = `http://${formatHostForUrl(host)}:${actualPort}/`;
 
@@ -162,6 +167,51 @@ function listen(server, { host, port }) {
     server.once("listening", onListening);
     server.listen(port, host);
   });
+}
+
+function isAllowedRequest(request, boundHost) {
+  const wildcard = boundHost === "0.0.0.0" || boundHost === "::";
+  const allowedHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+  if (!wildcard) {
+    allowedHosts.add(boundHost.toLowerCase());
+  }
+
+  const requestHost = extractHostname(request.headers.host);
+
+  // Reject unexpected Host headers so DNS-rebinding pages cannot reach the API.
+  // Explicit wildcard binding accepts any Host because the LAN address is intended.
+  if (!wildcard && (!requestHost || !allowedHosts.has(requestHost))) {
+    return false;
+  }
+
+  // Browsers attach Origin to cross-site requests; only trust local pages.
+  const origin = request.headers.origin;
+  if (origin) {
+    let originHost;
+    try {
+      originHost = new URL(origin).hostname.toLowerCase();
+    } catch {
+      return false;
+    }
+
+    return wildcard ? originHost === requestHost : allowedHosts.has(originHost);
+  }
+
+  return true;
+}
+
+function extractHostname(hostHeader) {
+  const raw = String(hostHeader ?? "").trim().toLowerCase();
+  if (!raw) {
+    return null;
+  }
+
+  const bracketMatch = raw.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (bracketMatch) {
+    return bracketMatch[1];
+  }
+
+  return raw.replace(/:\d+$/, "");
 }
 
 async function readJsonBody(request) {

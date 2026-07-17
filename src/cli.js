@@ -66,21 +66,21 @@ async function runScan(args) {
 
   const outputs = [];
   if (options.format === "all" || options.format === "json") {
-    const target = path.join(outputDir, "report.json");
-    await fs.writeFile(target, `${JSON.stringify(report, null, 2)}\n`);
-    outputs.push(target);
+    const outputPath = path.join(outputDir, "report.json");
+    await fs.writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`);
+    outputs.push(outputPath);
   }
 
   if (options.format === "all" || options.format === "md" || options.format === "markdown") {
-    const target = path.join(outputDir, "report.md");
-    await fs.writeFile(target, renderMarkdown(report));
-    outputs.push(target);
+    const outputPath = path.join(outputDir, "report.md");
+    await fs.writeFile(outputPath, renderMarkdown(report));
+    outputs.push(outputPath);
   }
 
   if (options.format === "all" || options.format === "html") {
-    const target = path.join(outputDir, "report.html");
-    await fs.writeFile(target, renderHtml(report));
-    outputs.push(target);
+    const outputPath = path.join(outputDir, "report.html");
+    await fs.writeFile(outputPath, renderHtml(report));
+    outputs.push(outputPath);
   }
 
   printSummary(report, outputs);

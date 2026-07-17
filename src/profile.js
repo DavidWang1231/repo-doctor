@@ -1,3 +1,5 @@
+import { SOURCE_FILE_EXTENSIONS } from "./constants.js";
+
 export const PROJECT_PROFILE_LABELS = {
   "static-game": "Static Game / GitHub Pages Demo",
   "static-site": "Static Site",
@@ -23,9 +25,7 @@ export function detectProjectProfile({ files, packageJson, profileOverride }) {
   const indexHtml = files.find((file) => file.path.toLowerCase() === "index.html");
   const htmlFiles = files.filter((file) => file.extension === ".html");
   const markdownFiles = files.filter((file) => file.extension === ".md");
-  const sourceFiles = files.filter((file) =>
-    [".js", ".jsx", ".mjs", ".ts", ".tsx", ".py", ".go", ".rs", ".rb", ".php", ".java"].includes(file.extension)
-  );
+  const sourceFiles = files.filter((file) => SOURCE_FILE_EXTENSIONS.has(file.extension));
   const pythonProjectFile = files.find((file) =>
     ["pyproject.toml", "setup.py", "requirements.txt", "poetry.lock"].includes(file.path.toLowerCase())
   );
@@ -235,26 +235,30 @@ function withPolicy(profile) {
 }
 
 function hasGameSignals(files) {
-  const browserFiles = files.filter((file) => [".html", ".js", ".mjs"].includes(file.extension));
-  const combined = browserFiles
-    .map((file) => file.content)
-    .join("\n")
-    .toLowerCase();
+  const strongSignals = ["<canvas", "getcontext(\"2d\")", "getcontext('2d')", "requestanimationframe"];
+  const weakSignals = ["keydown", "keyup", "score", "player", "enemy", "wave", "collision", "gameover"];
+  const matched = new Set();
+  let hasStrongSignal = false;
 
-  const signals = [
-    "<canvas",
-    "getcontext(\"2d\")",
-    "getcontext('2d')",
-    "requestanimationframe",
-    "keydown",
-    "keyup",
-    "score",
-    "player",
-    "enemy",
-    "wave",
-    "collision",
-    "gameover"
-  ];
+  for (const file of files) {
+    if (![".html", ".js", ".mjs"].includes(file.extension) || !file.content) {
+      continue;
+    }
 
-  return signals.filter((signal) => combined.includes(signal)).length >= 3;
+    const content = file.content.toLowerCase();
+    for (const signal of strongSignals) {
+      if (content.includes(signal)) {
+        matched.add(signal);
+        hasStrongSignal = true;
+      }
+    }
+    for (const signal of weakSignals) {
+      if (content.includes(signal)) {
+        matched.add(signal);
+      }
+    }
+  }
+
+  // Generic words like "score" or "player" alone should not classify a repo as a game.
+  return hasStrongSignal && matched.size >= 3;
 }

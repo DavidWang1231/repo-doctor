@@ -1,4 +1,10 @@
-export const VERSION = "0.4.1";
+import { readFileSync } from "node:fs";
+
+const packageJson = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8")
+);
+
+export const VERSION = packageJson.version;
 
 export const EXCLUDED_DIRECTORIES = new Set([
   ".git",
@@ -7,19 +13,30 @@ export const EXCLUDED_DIRECTORIES = new Set([
   "node_modules",
   "dist",
   "build",
+  "out",
   "coverage",
   ".next",
   ".nuxt",
   ".turbo",
   ".cache",
+  ".svelte-kit",
+  ".idea",
+  ".vscode",
   "vendor",
   "target",
-  "__pycache__"
+  "Pods",
+  ".venv",
+  "venv",
+  "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".tox"
 ]);
 
 export const TEXT_EXTENSIONS = new Set([
   ".c",
   ".cc",
+  ".cjs",
   ".cpp",
   ".cs",
   ".css",
@@ -31,6 +48,7 @@ export const TEXT_EXTENSIONS = new Set([
   ".json",
   ".md",
   ".mjs",
+  ".php",
   ".py",
   ".rb",
   ".rs",
@@ -41,6 +59,24 @@ export const TEXT_EXTENSIONS = new Set([
   ".yaml",
   ".yml"
 ]);
+
+export const SOURCE_FILE_EXTENSIONS = new Set([
+  ".js",
+  ".jsx",
+  ".cjs",
+  ".mjs",
+  ".ts",
+  ".tsx",
+  ".py",
+  ".go",
+  ".rs",
+  ".rb",
+  ".php",
+  ".java"
+]);
+
+export const ENV_REFERENCE_PATTERN =
+  /process\.env(?:\.|\[)|os\.environ(?:\.|\[|\.get)|Deno\.env\.get|getenv\(/;
 
 export const LANGUAGE_BY_EXTENSION = new Map([
   [".js", "JavaScript"],

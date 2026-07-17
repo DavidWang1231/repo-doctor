@@ -1,3 +1,4 @@
+import { ENV_REFERENCE_PATTERN } from "../constants.js";
 import { evidence, findLine } from "../file-system.js";
 import {
   isStaticShowcaseProfile,
@@ -388,7 +389,7 @@ function hasCommandBlock(content) {
 }
 
 function usesEnvironmentVariables(sourceFiles = []) {
-  return sourceFiles.some((file) => /process\.env(?:\.|\[)|os\.environ(?:\.|\[|\.get)|Deno\.env\.get|getenv\(/.test(file.content));
+  return sourceFiles.some((file) => ENV_REFERENCE_PATTERN.test(file.content));
 }
 
 export function checkDocker({ dockerfile, composeFile, findings, strengths }) {

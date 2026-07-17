@@ -1,11 +1,11 @@
+import { ENV_REFERENCE_PATTERN } from "../constants.js";
 import { evidence, findLine } from "../file-system.js";
 import { isStaticShowcaseProfile } from "../profile.js";
 import { finding, skipped, strength } from "../rule-utils.js";
 
-const ENV_REFERENCE_PATTERN = /process\.env(?:\.|\[)|os\.environ(?:\.|\[|\.get)|Deno\.env\.get|getenv\(/;
-
 export function checkEnv({ files, sourceFiles, envExample, envFiles, findings, strengths }) {
-  const referencesEnv = sourceFiles.some((file) => ENV_REFERENCE_PATTERN.test(file.content));
+  const envReferencingFiles = sourceFiles.filter((file) => ENV_REFERENCE_PATTERN.test(file.content));
+  const referencesEnv = envReferencingFiles.length > 0;
 
   if (referencesEnv && !envExample) {
     findings.push(finding({
@@ -15,8 +15,7 @@ export function checkEnv({ files, sourceFiles, envExample, envFiles, findings, s
       category: "documentation",
       summary: "The code references environment variables, but contributors do not have a safe template to copy.",
       recommendation: "Add .env.example with variable names and non-secret placeholder values.",
-      evidence: sourceFiles
-        .filter((file) => ENV_REFERENCE_PATTERN.test(file.content))
+      evidence: envReferencingFiles
         .slice(0, 3)
         .map((file) => evidence(file, findLine(file, (line) => ENV_REFERENCE_PATTERN.test(line)))),
       fixable: true

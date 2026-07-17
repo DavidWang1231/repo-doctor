@@ -7,7 +7,7 @@
     "repo-doctor": "src/cli.js"
   },
   "scripts": {
-    "lint": "node --check src/cli.js && node --check src/one-click.js && node --check src/web-server.js && node --check src/ai-prompt.js && node --check src/scanner.js && node --check src/checks.js && node --check src/file-system.js && node --check src/constants.js && node --check src/rule-utils.js && node --check src/profile.js && node --check src/scoring.js && node --check src/target.js && node --check src/summarizer.js && node --check src/fixes.js && node --check src/rules/project-hygiene.js && node --check src/rules/security.js && node --check src/rules/maintainability.js && node --check src/reporters/html.js && node --check src/reporters/markdown.js && node --check test/scanner.test.js",
+    "lint": "node scripts/lint.mjs",
     "scan": "node ./src/cli.js scan .",
     "one-click": "node ./src/one-click.js",
     "web": "node ./src/web-server.js",

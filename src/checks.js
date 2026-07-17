@@ -1,4 +1,5 @@
 import { findFile, findFiles, readJsonFile, evidence } from "./file-system.js";
+import { SOURCE_FILE_EXTENSIONS } from "./constants.js";
 import { detectProjectProfile } from "./profile.js";
 import { finding, isTestPath } from "./rule-utils.js";
 import { calculateOverallScore, scoreCategories, sortFindings } from "./scoring.js";
@@ -22,7 +23,9 @@ export async function runChecks({ rootDir, files, profileOverride = null }) {
 
   if (context.packageFile) {
     try {
-      context.packageJson = await readJsonFile(context.packageFile.absolutePath);
+      context.packageJson = context.packageFile.content
+        ? JSON.parse(context.packageFile.content)
+        : await readJsonFile(context.packageFile.absolutePath);
     } catch (error) {
       findings.push(finding({
         id: "package-json-invalid",
@@ -54,9 +57,7 @@ export async function runChecks({ rootDir, files, profileOverride = null }) {
 }
 
 function buildContext({ rootDir, files, findings, strengths, skipped, profileOverride }) {
-  const sourceFiles = files.filter((file) =>
-    [".js", ".jsx", ".mjs", ".ts", ".tsx", ".py", ".go", ".rs", ".rb", ".php", ".java"].includes(file.extension)
-  );
+  const sourceFiles = files.filter((file) => SOURCE_FILE_EXTENSIONS.has(file.extension));
 
   return {
     rootDir,

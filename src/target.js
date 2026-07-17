@@ -16,11 +16,16 @@ export function parseGitHubTarget(input) {
   for (const pattern of patterns) {
     const match = trimmed.match(pattern);
     if (match) {
+      const [, owner, repo] = match;
+      if (owner === "." || owner === ".." || repo === "." || repo === "..") {
+        return null;
+      }
+
       return {
-        owner: match[1],
-        repo: match[2],
-        cloneUrl: `https://github.com/${match[1]}/${match[2]}.git`,
-        webUrl: `https://github.com/${match[1]}/${match[2]}`
+        owner,
+        repo,
+        cloneUrl: `https://github.com/${owner}/${repo}.git`,
+        webUrl: `https://github.com/${owner}/${repo}`
       };
     }
   }
@@ -47,7 +52,9 @@ export async function resolveScanTarget(input) {
 
   try {
     await execFileAsync("git", ["clone", "--depth", "1", githubTarget.cloneUrl, cloneDir], {
-      maxBuffer: 1024 * 1024 * 8
+      maxBuffer: 1024 * 1024 * 8,
+      timeout: 1000 * 60 * 5,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
     });
   } catch (error) {
     await rm(tempRoot, { recursive: true, force: true });
