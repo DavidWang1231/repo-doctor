@@ -260,7 +260,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DavidWang1231/repo-doctor@v0.4.2
+      - uses: DavidWang1231/repo-doctor@v0.4.3
         with:
           path: "."
           output: "repo-doctor-report"

@@ -350,10 +350,33 @@ test("scanForWeb returns report downloads for the browser UI", async () => {
   assert.match(result.downloads.fixPrompt, /AI Fix Prompt/);
 });
 
+test("generated CI workflow installs dependencies and honors engines", async () => {
+  const root = await makeTempRepo({
+    "package.json": JSON.stringify({
+      name: "engines-app",
+      engines: { node: ">=22.13.0" },
+      dependencies: { express: "latest" },
+      scripts: { test: "node --test" }
+    }, null, 2),
+    "package-lock.json": JSON.stringify({ name: "engines-app", lockfileVersion: 3 }, null, 2),
+    "src/index.js": "console.log('ok');\n"
+  });
+
+  const plan = await planFixes(root);
+  const workflow = plan.actions.find((action) => action.path === ".github/workflows/ci.yml");
+
+  assert.ok(workflow);
+  assert.match(workflow.content, /npm ci/);
+  assert.match(workflow.content, /node-version: 22/);
+  assert.match(workflow.content, /cache: npm/);
+  assert.ok(workflow.content.indexOf("npm ci") < workflow.content.indexOf("npm test"));
+});
+
 test("fix command plans and applies only missing low-risk files", async () => {
   const root = await makeTempRepo({
     "package.json": JSON.stringify({
       name: "fixable-app",
+      dependencies: { express: "latest" },
       scripts: {
         test: "node --test"
       }
@@ -375,6 +398,7 @@ test("fix command plans and applies only missing low-risk files", async () => {
   const workflow = await fs.readFile(path.join(root, ".github/workflows/ci.yml"), "utf8");
 
   assert.match(envExample, /API_URL=/);
+  assert.match(workflow, /npm install/);
   assert.match(workflow, /npm test/);
 });
 

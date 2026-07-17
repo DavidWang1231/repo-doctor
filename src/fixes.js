@@ -1,9 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { SOURCE_FILE_EXTENSIONS } from "./constants.js";
 import { findFile, findFiles, walkRepository } from "./file-system.js";
 import { isTestPath } from "./rule-utils.js";
-
-const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".ts", ".tsx", ".py", ".go", ".rs", ".rb"]);
 
 export async function planFixes(targetPath = ".") {
   const rootDir = path.resolve(targetPath);
@@ -15,7 +14,7 @@ export async function planFixes(targetPath = ".") {
   maybeCreateEnvExample({ files, rootDir, actions });
   maybeCreatePullRequestTemplate({ files, rootDir, actions });
   maybeCreateIssueTemplate({ files, rootDir, actions });
-  maybeCreateCiWorkflow({ packageFile, workflowFiles, rootDir, actions });
+  maybeCreateCiWorkflow({ packageFile, workflowFiles, files, rootDir, actions });
 
   return {
     rootDir,
@@ -130,7 +129,7 @@ function maybeCreateIssueTemplate({ files, rootDir, actions }) {
   }));
 }
 
-function maybeCreateCiWorkflow({ packageFile, workflowFiles, rootDir, actions }) {
+function maybeCreateCiWorkflow({ packageFile, workflowFiles, files, rootDir, actions }) {
   if (!packageFile || workflowFiles.length > 0) {
     return;
   }
@@ -143,7 +142,17 @@ function maybeCreateCiWorkflow({ packageFile, workflowFiles, rootDir, actions })
   }
 
   const scripts = packageJson.scripts ?? {};
+  const hasDependencies = Boolean(
+    Object.keys(packageJson.dependencies ?? {}).length ||
+    Object.keys(packageJson.devDependencies ?? {}).length
+  );
+  const hasLockfile = Boolean(findFile(files, ["package-lock.json", "npm-shrinkwrap.json"]));
+  const nodeVersion = minimumNodeMajor(packageJson.engines?.node) ?? 20;
+
   const commands = [];
+  if (hasDependencies) {
+    commands.push(hasLockfile ? "npm ci" : "npm install");
+  }
   if (scripts.lint) {
     commands.push("npm run lint");
   }
@@ -154,7 +163,7 @@ function maybeCreateCiWorkflow({ packageFile, workflowFiles, rootDir, actions })
     commands.push("npm run build");
   }
 
-  if (commands.length === 0) {
+  if (!scripts.lint && !scripts.test && !scripts.build) {
     return;
   }
 
@@ -178,11 +187,17 @@ function maybeCreateCiWorkflow({ packageFile, workflowFiles, rootDir, actions })
       "      - uses: actions/checkout@v4",
       "      - uses: actions/setup-node@v4",
       "        with:",
-      "          node-version: 20",
+      `          node-version: ${nodeVersion}`,
+      ...(hasLockfile ? ["          cache: npm"] : []),
       ...commands.map((command) => `      - run: ${command}`),
       ""
     ].join("\n")
   }));
+}
+
+function minimumNodeMajor(enginesNode) {
+  const match = String(enginesNode ?? "").match(/(\d+)/);
+  return match ? Number(match[1]) : null;
 }
 
 function createFileAction({ rootDir, relativePath, description, content }) {
@@ -199,7 +214,7 @@ function extractEnvNames(files) {
   const names = new Set();
 
   for (const file of files) {
-    if (!SOURCE_EXTENSIONS.has(file.extension) || isTestPath(file.path)) {
+    if (!SOURCE_FILE_EXTENSIONS.has(file.extension) || isTestPath(file.path)) {
       continue;
     }
 
