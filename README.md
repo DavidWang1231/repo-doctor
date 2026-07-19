@@ -38,6 +38,12 @@ Then run:
 repo-doctor scan https://github.com/owner/repo
 ```
 
+Or run it once without a global installation:
+
+```bash
+npx @davidwang1231/repo-doctor scan https://github.com/owner/repo
+```
+
 You can also clone or download the repository from GitHub and run it directly from source.
 
 ### Web Mode
