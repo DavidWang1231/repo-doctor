@@ -11,6 +11,7 @@ import { resolveScanTarget } from "./target.js";
 import { parseWebArgs, startWebServer } from "./web-server.js";
 import { renderHtml } from "./reporters/html.js";
 import { renderMarkdown } from "./reporters/markdown.js";
+import { renderUnderstandingMarkdown } from "./reporters/understanding.js";
 
 async function main(argv) {
   const [command, ...rest] = argv;
@@ -80,6 +81,12 @@ async function runScan(args) {
   if (options.format === "all" || options.format === "html") {
     const outputPath = path.join(outputDir, "report.html");
     await fs.writeFile(outputPath, renderHtml(report));
+    outputs.push(outputPath);
+  }
+
+  if (options.format === "all") {
+    const outputPath = path.join(outputDir, "overview.md");
+    await fs.writeFile(outputPath, renderUnderstandingMarkdown(report));
     outputs.push(outputPath);
   }
 

@@ -10,6 +10,7 @@ import { VERSION } from "./constants.js";
 import { listProjectProfiles } from "./profile.js";
 import { renderHtml } from "./reporters/html.js";
 import { renderMarkdown } from "./reporters/markdown.js";
+import { renderUnderstandingMarkdown } from "./reporters/understanding.js";
 import { scanRepository } from "./scanner.js";
 import { renderPrioritySummary } from "./summarizer.js";
 import { resolveScanTarget } from "./target.js";
@@ -69,6 +70,7 @@ export async function scanForWeb({ target = ".", profile = null } = {}) {
         json: `${JSON.stringify(report, null, 2)}\n`,
         markdown: renderMarkdown(report),
         html: renderHtml(report),
+        overview: renderUnderstandingMarkdown(report),
         summary: renderPrioritySummary(report),
         fixPrompt: renderFixPrompt(report)
       }

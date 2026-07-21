@@ -21,6 +21,11 @@ export function renderMarkdown(report) {
   }
   lines.push(`**Findings:** ${critical} critical, ${warnings} warnings, ${fixable} fixable suggestions`);
   lines.push("");
+
+  if (report.understanding) {
+    lines.push(...renderUnderstanding(report.understanding));
+  }
+
   lines.push("## Category Scores");
   lines.push("");
   lines.push("| Category | Score | Findings |");
@@ -103,6 +108,63 @@ export function renderMarkdown(report) {
   lines.push("");
 
   return lines.join("\n");
+}
+
+function renderUnderstanding(understanding) {
+  const lines = ["## Repository Understanding", ""];
+  lines.push(understanding.summary.text);
+  lines.push("");
+  lines.push(`Basis: **${understanding.summary.basis}**`);
+  lines.push("");
+
+  lines.push("### Confirmed Facts", "");
+  for (const fact of understanding.facts) {
+    lines.push(`- **${fact.label}:** ${fact.value} _(${fact.basis})_`);
+  }
+  lines.push("");
+
+  lines.push("### Main Capabilities", "");
+  if (understanding.capabilities.length === 0) {
+    lines.push("No capabilities were stated clearly enough to extract without guessing.");
+  } else {
+    for (const item of understanding.capabilities) {
+      lines.push(`- ${item.text} _(${item.basis})_`);
+    }
+  }
+  lines.push("");
+
+  lines.push("### How To Run", "");
+  if (understanding.runInstructions.length === 0) {
+    lines.push("No reliable run command was found in README or project configuration.");
+  } else {
+    for (const item of understanding.runInstructions) {
+      lines.push(`- \`${item.command}\` - ${item.source}`);
+    }
+  }
+  lines.push("");
+
+  lines.push("### Core Files", "");
+  if (understanding.coreFiles.length === 0) {
+    lines.push("No core files could be identified confidently.");
+  } else {
+    for (const item of understanding.coreFiles) {
+      lines.push(`- \`${item.path}\` - ${item.role} _(${item.basis})_`);
+    }
+  }
+  lines.push("");
+
+  lines.push("### Possible Gaps", "");
+  if (understanding.likelyGaps.length === 0) {
+    lines.push("No gaps were identified by the current ruleset.");
+  } else {
+    for (const gap of understanding.likelyGaps) {
+      lines.push(`- **[${gap.severity}] ${gap.title}:** ${gap.reason}`);
+    }
+  }
+  lines.push("");
+  lines.push(`> ${understanding.limits}`);
+  lines.push("");
+  return lines;
 }
 
 function severityLabel(severity) {

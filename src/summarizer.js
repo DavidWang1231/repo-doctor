@@ -35,6 +35,17 @@ export function renderPrioritySummary(report) {
     lines.push("");
   }
 
+  if (report.understanding) {
+    lines.push("## Repository Overview");
+    lines.push("");
+    lines.push(`${report.understanding.summary.text} _(${report.understanding.summary.basis})_`);
+    lines.push("");
+    if (report.understanding.coreFiles.length > 0) {
+      lines.push(`Core files: ${report.understanding.coreFiles.slice(0, 5).map((item) => `\`${item.path}\``).join(", ")}`);
+      lines.push("");
+    }
+  }
+
   lines.push("## Executive Read");
   lines.push("");
   lines.push(renderExecutiveRead(report, critical, warnings));
@@ -89,6 +100,9 @@ export function renderPrioritySummary(report) {
   lines.push(`Project: ${report.project.name}`);
   if (report.project.profile) {
     lines.push(`Project type: ${report.project.profile.label}`);
+  }
+  if (report.understanding) {
+    lines.push(`Repository overview: ${report.understanding.summary.text}`);
   }
   lines.push(`Score: ${report.score}/100`);
   lines.push("Top findings:");

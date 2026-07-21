@@ -19,7 +19,7 @@ export function renderFixPrompt(report) {
   lines.push("");
   lines.push("```text");
   lines.push("You are helping repair a repository based on a Repo Doctor health report.");
-  lines.push("Use only the findings, skipped checks, and evidence listed below.");
+  lines.push("Use only the findings, skipped checks, repository overview, and evidence listed below.");
   lines.push("Before editing, inspect the referenced files and confirm the report still matches the repository.");
   lines.push("Do not invent missing files, vulnerabilities, tests, workflows, or line numbers.");
   lines.push("Do not add generic boilerplate for checks Repo Doctor explicitly skipped for this project type.");
@@ -34,6 +34,15 @@ export function renderFixPrompt(report) {
     lines.push(`Project type: ${report.project.profile.label}${overrideNote}`);
     if (report.project.profile.rationale?.length > 0) {
       lines.push(`Project type rationale: ${report.project.profile.rationale.join(", ")}`);
+    }
+  }
+  if (report.understanding) {
+    lines.push(`Repository overview (${report.understanding.summary.basis}): ${report.understanding.summary.text}`);
+    if (report.understanding.coreFiles.length > 0) {
+      lines.push("Core files identified by Repo Doctor:");
+      for (const item of report.understanding.coreFiles.slice(0, 8)) {
+        lines.push(`- ${item.path}: ${item.role} (${item.basis})`);
+      }
     }
   }
   lines.push(`Score: ${report.score}/100`);

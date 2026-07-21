@@ -2,12 +2,21 @@ import path from "node:path";
 import { VERSION } from "./constants.js";
 import { runChecks } from "./checks.js";
 import { walkRepository } from "./file-system.js";
+import { buildRepositoryUnderstanding } from "./understanding.js";
 
 export async function scanRepository(targetPath = ".", source = null, options = {}) {
   const rootDir = path.resolve(targetPath);
   const files = await walkRepository(rootDir);
   const stats = buildStats(files);
   const checks = await runChecks({ rootDir, files, profileOverride: options.profile ?? null });
+  const projectName = inferProjectName(rootDir, files);
+  const understanding = buildRepositoryUnderstanding({
+    files,
+    projectName,
+    profile: checks.profile,
+    findings: checks.findings,
+    stats
+  });
 
   return {
     tool: {
@@ -15,7 +24,7 @@ export async function scanRepository(targetPath = ".", source = null, options = 
       version: VERSION
     },
     project: {
-      name: inferProjectName(rootDir, files),
+      name: projectName,
       root: rootDir,
       profile: checks.profile,
       source: source ?? {
@@ -30,9 +39,10 @@ export async function scanRepository(targetPath = ".", source = null, options = 
     findings: checks.findings,
     strengths: checks.strengths,
     skipped: checks.skipped,
+    understanding,
     aiContext: {
       instruction: "Use only the structured evidence in this JSON when writing recommendations. Do not invent missing files, tests, workflows, or vulnerabilities.",
-      evidenceContract: "Each finding includes file and line references where Repo Doctor found the signal."
+      evidenceContract: "Each finding and repository-understanding claim includes its basis and file evidence where available."
     }
   };
 }

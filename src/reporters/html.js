@@ -214,6 +214,39 @@ export function renderHtml(report) {
       gap: 8px;
     }
 
+    .understanding-intro {
+      padding: 16px 0 14px;
+      border-top: 3px solid var(--blue);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .understanding-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px 28px;
+      margin-top: 18px;
+    }
+
+    .understanding-block {
+      min-width: 0;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .understanding-block li {
+      overflow-wrap: anywhere;
+    }
+
+    .understanding-block.wide {
+      grid-column: 1 / -1;
+    }
+
+    .basis {
+      color: var(--muted);
+      font-size: .82rem;
+      text-transform: uppercase;
+    }
+
     .language-row {
       display: grid;
       grid-template-columns: 1fr 90px 90px;
@@ -230,7 +263,8 @@ export function renderHtml(report) {
 
       .summary,
       .categories,
-      .strengths {
+      .strengths,
+      .understanding-grid {
         grid-template-columns: 1fr;
       }
 
@@ -272,6 +306,8 @@ export function renderHtml(report) {
         <span class="muted">Fixable suggestions</span>
       </div>
     </section>
+
+    ${report.understanding ? renderUnderstanding(report.understanding) : ""}
 
     <section>
       <h2>Category Scores</h2>
@@ -317,6 +353,57 @@ export function renderHtml(report) {
   </main>
 </body>
 </html>`;
+}
+
+function renderUnderstanding(understanding) {
+  return `
+    <section>
+      <h2>Repository Understanding</h2>
+      <div class="understanding-intro">
+        <p>${escapeHtml(understanding.summary.text)}</p>
+        <span class="basis">${escapeHtml(understanding.summary.basis)} basis</span>
+        ${renderEvidence(understanding.summary.evidence)}
+      </div>
+      <div class="understanding-grid">
+        <div class="understanding-block">
+          <h3>Confirmed Facts</h3>
+          <ul>${understanding.facts.map((item) => `<li><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(item.value)} <span class="basis">${escapeHtml(item.basis)}</span></li>`).join("")}</ul>
+        </div>
+        <div class="understanding-block">
+          <h3>Main Capabilities</h3>
+          ${understanding.capabilities.length === 0
+            ? "<p class=\"muted\">No capabilities were stated clearly enough to extract without guessing.</p>"
+            : `<ul>${understanding.capabilities.map((item) => `<li>${escapeHtml(item.text)} <span class="basis">${escapeHtml(item.basis)}</span></li>`).join("")}</ul>`}
+        </div>
+        <div class="understanding-block">
+          <h3>How To Run</h3>
+          ${understanding.runInstructions.length === 0
+            ? "<p class=\"muted\">No reliable run command was found.</p>"
+            : `<ul>${understanding.runInstructions.map((item) => `<li><code>${escapeHtml(item.command)}</code> <span class="muted">${escapeHtml(item.source)}</span></li>`).join("")}</ul>`}
+        </div>
+        <div class="understanding-block">
+          <h3>Core Files</h3>
+          ${understanding.coreFiles.length === 0
+            ? "<p class=\"muted\">No core files could be identified confidently.</p>"
+            : `<ul>${understanding.coreFiles.map((item) => `<li><code>${escapeHtml(item.path)}</code> ${escapeHtml(item.role)} <span class="basis">${escapeHtml(item.basis)}</span></li>`).join("")}</ul>`}
+        </div>
+        <div class="understanding-block wide">
+          <h3>Possible Gaps</h3>
+          ${understanding.likelyGaps.length === 0
+            ? "<p class=\"muted\">No gaps were identified by the current ruleset.</p>"
+            : `<ul>${understanding.likelyGaps.map((item) => `<li><strong>[${escapeHtml(item.severity)}] ${escapeHtml(item.title)}:</strong> ${escapeHtml(item.reason)}</li>`).join("")}</ul>`}
+        </div>
+      </div>
+      <p class="muted">${escapeHtml(understanding.limits)}</p>
+    </section>
+  `;
+}
+
+function renderEvidence(evidenceItems = []) {
+  if (evidenceItems.length === 0) {
+    return "";
+  }
+  return `<p class="muted">Evidence: ${evidenceItems.map((item) => `<code>${escapeHtml(item.file)}:${item.line}</code>`).join(", ")}</p>`;
 }
 
 function renderCategory(category) {

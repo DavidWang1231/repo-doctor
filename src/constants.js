@@ -15,6 +15,8 @@ export const EXCLUDED_DIRECTORIES = new Set([
   "build",
   "out",
   "coverage",
+  "repo-doctor-report",
+  "repo-doctor-runs",
   ".next",
   ".nuxt",
   ".turbo",

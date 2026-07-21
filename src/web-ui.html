@@ -305,6 +305,39 @@
       padding-left: 20px;
     }
 
+    .understanding-summary {
+      padding: 12px 0;
+      border-top: 3px solid var(--blue);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .understanding-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px 24px;
+      margin-top: 14px;
+    }
+
+    .understanding-group {
+      min-width: 0;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .understanding-group li {
+      overflow-wrap: anywhere;
+    }
+
+    .understanding-group.wide {
+      grid-column: 1 / -1;
+    }
+
+    .basis {
+      color: var(--muted);
+      font-size: .8rem;
+      text-transform: uppercase;
+    }
+
     @media (max-width: 820px) {
       main {
         width: min(100% - 20px, 1180px);
@@ -318,7 +351,8 @@
 
       form,
       .summary-grid,
-      .category-grid {
+      .category-grid,
+      .understanding-grid {
         grid-template-columns: 1fr;
       }
 
@@ -364,9 +398,14 @@
         <button data-download="html" type="button">Download HTML</button>
         <button data-download="markdown" type="button">Download Markdown</button>
         <button data-download="json" type="button">Download JSON</button>
+        <button data-download="overview" type="button">Download Project Overview</button>
         <button data-download="summary" type="button">Download Summary</button>
         <button data-download="fixPrompt" type="button">Download AI Fix Prompt</button>
       </div>
+      <section class="section">
+        <h2>Repository Understanding</h2>
+        <div id="understanding"></div>
+      </section>
       <section class="section">
         <h2>Category Scores</h2>
         <div class="category-grid" id="category-grid"></div>
@@ -391,6 +430,7 @@
     const resultsEl = document.querySelector("#results");
     const summaryGrid = document.querySelector("#summary-grid");
     const categoryGrid = document.querySelector("#category-grid");
+    const understandingEl = document.querySelector("#understanding");
     const findingsEl = document.querySelector("#findings");
     const skippedEl = document.querySelector("#skipped");
     const downloadRow = document.querySelector("#download-row");
@@ -411,6 +451,7 @@
         html: "report.html",
         markdown: "report.md",
         json: "report.json",
+        overview: "overview.md",
         summary: "summary.md",
         fixPrompt: "fix-prompt.md"
       };
@@ -418,6 +459,7 @@
         html: "text/html",
         markdown: "text/markdown",
         json: "application/json",
+        overview: "text/markdown",
         summary: "text/markdown",
         fixPrompt: "text/markdown"
       };
@@ -461,6 +503,8 @@
       const warnings = report.findings.filter((finding) => finding.severity === "warning").length;
       const profile = report.project.profile;
 
+      renderUnderstanding(report.understanding);
+
       summaryGrid.innerHTML = [
         metric(scoreMarkup(report.score), "Health score"),
         metric(critical, "Critical findings"),
@@ -489,6 +533,40 @@
         : '<p class="muted">No checks were skipped.</p>';
 
       resultsEl.classList.add("visible");
+    }
+
+    function renderUnderstanding(understanding) {
+      if (!understanding) {
+        understandingEl.innerHTML = '<p class="muted">Repository understanding data is not available.</p>';
+        return;
+      }
+
+      const facts = understanding.facts.length
+        ? '<ul>' + understanding.facts.map((item) => '<li><strong>' + escapeHtml(item.label) + ':</strong> ' + escapeHtml(item.value) + ' <span class="basis">' + escapeHtml(item.basis) + '</span></li>').join('') + '</ul>'
+        : '<p class="muted">No confirmed facts extracted.</p>';
+      const capabilities = understanding.capabilities.length
+        ? '<ul>' + understanding.capabilities.map((item) => '<li>' + escapeHtml(item.text) + ' <span class="basis">' + escapeHtml(item.basis) + '</span></li>').join('') + '</ul>'
+        : '<p class="muted">No capabilities were stated clearly enough to extract without guessing.</p>';
+      const runInstructions = understanding.runInstructions.length
+        ? '<ul>' + understanding.runInstructions.map((item) => '<li><code>' + escapeHtml(item.command) + '</code> <span class="muted">' + escapeHtml(item.source) + '</span></li>').join('') + '</ul>'
+        : '<p class="muted">No reliable run command was found.</p>';
+      const coreFiles = understanding.coreFiles.length
+        ? '<ul>' + understanding.coreFiles.map((item) => '<li><code>' + escapeHtml(item.path) + '</code> ' + escapeHtml(item.role) + '</li>').join('') + '</ul>'
+        : '<p class="muted">No core files could be identified confidently.</p>';
+      const likelyGaps = understanding.likelyGaps.length
+        ? '<ul>' + understanding.likelyGaps.map((item) => '<li><strong>[' + escapeHtml(item.severity) + '] ' + escapeHtml(item.title) + ':</strong> ' + escapeHtml(item.reason) + '</li>').join('') + '</ul>'
+        : '<p class="muted">No gaps were identified by the current ruleset.</p>';
+
+      understandingEl.innerHTML =
+        '<div class="understanding-summary"><p>' + escapeHtml(understanding.summary.text) + '</p><span class="basis">' + escapeHtml(understanding.summary.basis) + ' basis</span></div>' +
+        '<div class="understanding-grid">' +
+          '<div class="understanding-group"><h3>Confirmed Facts</h3>' + facts + '</div>' +
+          '<div class="understanding-group"><h3>Main Capabilities</h3>' + capabilities + '</div>' +
+          '<div class="understanding-group"><h3>How To Run</h3>' + runInstructions + '</div>' +
+          '<div class="understanding-group"><h3>Core Files</h3>' + coreFiles + '</div>' +
+          '<div class="understanding-group wide"><h3>Possible Gaps</h3>' + likelyGaps + '</div>' +
+        '</div>' +
+        '<p class="muted">' + escapeHtml(understanding.limits) + '</p>';
     }
 
     function renderFinding(finding) {

@@ -14,6 +14,7 @@ import { renderPrioritySummary } from "./summarizer.js";
 import { resolveScanTarget } from "./target.js";
 import { renderHtml } from "./reporters/html.js";
 import { renderMarkdown } from "./reporters/markdown.js";
+import { renderUnderstandingMarkdown } from "./reporters/understanding.js";
 
 const execFileAsync = promisify(execFile);
 const scriptRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -98,6 +99,7 @@ async function writeReports(report) {
   await fs.writeFile(path.join(outputDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
   await fs.writeFile(path.join(outputDir, "report.md"), renderMarkdown(report));
   await fs.writeFile(path.join(outputDir, "report.html"), renderHtml(report));
+  await fs.writeFile(path.join(outputDir, "overview.md"), renderUnderstandingMarkdown(report));
   await fs.writeFile(path.join(outputDir, "summary.md"), renderPrioritySummary(report));
   await fs.writeFile(path.join(outputDir, "fix-prompt.md"), renderFixPrompt(report));
   return outputDir;
@@ -169,6 +171,7 @@ function printDone(outputDir) {
   console.log(path.join(outputDir, "report.html"));
   console.log("");
   console.log("Also generated:");
+  console.log(path.join(outputDir, "overview.md"));
   console.log(path.join(outputDir, "summary.md"));
   console.log(path.join(outputDir, "fix-prompt.md"));
   console.log("");

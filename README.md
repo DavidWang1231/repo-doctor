@@ -6,7 +6,7 @@ Repo Doctor scans a local repository and produces a prioritized health report co
 
 ![Repo Doctor report preview](docs/assets/report-preview.svg)
 
-Current v0.4 runs without runtime dependencies. The scanner is deterministic first, AI-ready second: every finding is backed by structured evidence in `report.json`, so summaries can explain and prioritize issues without inventing facts.
+Current v0.5 runs without runtime dependencies. The scanner is deterministic first, AI-ready second: every finding is backed by structured evidence in `report.json`, so summaries can explain and prioritize issues without inventing facts.
 
 Live demo page: https://davidwang1231.github.io/repo-doctor/
 
@@ -65,6 +65,7 @@ This opens a browser page where you can paste a local project path or a public G
 - `report.html`
 - `report.md`
 - `report.json`
+- `overview.md`
 - `summary.md`
 - `fix-prompt.md`
 
@@ -132,6 +133,7 @@ repo-doctor-report/
   report.html
   report.json
   report.md
+  overview.md
 ```
 
 Use a custom output directory:
@@ -206,6 +208,21 @@ Current profiles include:
 
 Rules adapt to the profile. For example, a static game is not penalized for missing unit tests, `SECURITY.md`, or `CONTRIBUTING.md` when those checks do not fit the project. Instead, Repo Doctor focuses on things that matter for that repository type, such as playable documentation, GitHub Pages safety, syntax checks, and `.gitignore`.
 
+## Repository Understanding
+
+Every scan now builds an evidence-grounded project overview from the README, entry points, configuration files, package metadata, and major source files. It explains:
+
+- what the project says it is
+- confirmed project type, languages, and repository size
+- documented or structurally detected capabilities
+- reliable run commands found in README or package scripts
+- likely core files and their roles
+- possible gaps taken directly from Repo Doctor findings
+
+Claims are labeled as declared, detected, measured, or inferred. The overview does not claim to verify runtime behavior, product quality, or business correctness.
+
+The overview is embedded in `report.json`, `report.md`, and `report.html`, and is also written separately as `overview.md` for sharing with people or AI coding assistants.
+
 ## Low-Risk Fixes
 
 `repo-doctor fix` only creates missing files. It does not overwrite existing files.
@@ -231,6 +248,7 @@ Outputs:
 - repo-doctor-report/report.json
 - repo-doctor-report/report.md
 - repo-doctor-report/report.html
+- repo-doctor-report/overview.md
 ```
 
 Each finding includes evidence:
@@ -266,7 +284,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DavidWang1231/repo-doctor@v0.4.3
+      - uses: DavidWang1231/repo-doctor@v0.5.0
         with:
           path: "."
           output: "repo-doctor-report"

@@ -10,6 +10,7 @@ import { renderPrioritySummary } from "../src/summarizer.js";
 import { parseGitHubTarget } from "../src/target.js";
 import { renderMarkdown } from "../src/reporters/markdown.js";
 import { renderHtml } from "../src/reporters/html.js";
+import { renderUnderstandingMarkdown } from "../src/reporters/understanding.js";
 import { scanForWeb } from "../src/web-server.js";
 
 test("scanRepository reports missing project hygiene files", async () => {
@@ -200,6 +201,77 @@ test("scanRepository accepts a manual project profile override", async () => {
   assert.ok(report.skipped.some((item) => item.id === "unit-tests-not-required"));
 });
 
+test("scanRepository builds an evidence-grounded repository understanding", async () => {
+  const root = await makeTempRepo({
+    "README.md": [
+      "# Atlas CLI",
+      "",
+      "> Atlas CLI validates map data before release.",
+      "",
+      "## Features",
+      "",
+      "- Checks GeoJSON files for missing coordinates.",
+      "- Produces a concise validation report.",
+      "",
+      "## Quick Start",
+      "",
+      "```bash",
+      "npm install",
+      "npm run start",
+      "```"
+    ].join("\n"),
+    "package.json": JSON.stringify({
+      name: "atlas-cli",
+      description: "Validate map data.",
+      bin: { atlas: "src/cli.js" },
+      scripts: { start: "node src/cli.js" }
+    }, null, 2),
+    "src/cli.js": "console.log('validate');\n"
+  });
+
+  const report = await scanRepository(root);
+  const overview = renderUnderstandingMarkdown(report);
+
+  assert.equal(report.understanding.summary.basis, "declared");
+  assert.match(report.understanding.summary.text, /validates map data/);
+  assert.ok(!report.understanding.summary.text.startsWith(">"));
+  assert.ok(report.understanding.summary.evidence.some((item) => item.file === "README.md" && item.line === 3));
+  assert.ok(report.understanding.capabilities.some((item) => /GeoJSON/.test(item.text)));
+  assert.ok(report.understanding.runInstructions.some((item) => item.command === "npm run start"));
+  assert.ok(report.understanding.coreFiles.some((item) => item.path === "src/cli.js"));
+  assert.match(overview, /Repository Overview/);
+  assert.match(overview, /How To Run/);
+  assert.match(overview, /src\/cli\.js/);
+});
+
+test("repository understanding marks structural summaries as inferred", async () => {
+  const root = await makeTempRepo({
+    "package.json": JSON.stringify({ name: "quiet-package", main: "index.js" }, null, 2),
+    "index.js": "export const value = 1;\n"
+  });
+
+  const report = await scanRepository(root);
+
+  assert.equal(report.understanding.summary.basis, "inferred");
+  assert.match(report.understanding.summary.text, /appears to be/i);
+  assert.match(report.understanding.limits, /does not verify runtime behavior/i);
+});
+
+test("scanner excludes Repo Doctor generated output directories", async () => {
+  const root = await makeTempRepo({
+    "README.md": "# Clean project\n\nA small JavaScript project.\n",
+    "src/index.js": "export const value = 1;\n",
+    "repo-doctor-report/report.html": "<html>generated report</html>\n",
+    "repo-doctor-runs/old/report.json": "{\"generated\":true}\n"
+  });
+
+  const report = await scanRepository(root);
+
+  assert.equal(report.stats.files, 2);
+  assert.ok(!report.stats.languages.some((item) => item.language === "HTML"));
+  assert.ok(!report.understanding.coreFiles.some((item) => item.path.startsWith("repo-doctor-")));
+});
+
 test("large files do not lose points from line count alone", async () => {
   const gameRoot = await makeTempRepo({
     "README.md": "# Large game\n\nPlay in the browser.\n\n## Run locally\n\nOpen index.html.\n",
@@ -260,8 +332,10 @@ test("reporters render evidence-bearing output", async () => {
 
   assert.match(markdown, /Repo Doctor Report/);
   assert.match(markdown, /Evidence/);
+  assert.match(markdown, /Repository Understanding/);
   assert.match(html, /Repo Doctor Report/);
   assert.match(html, /Health score/);
+  assert.match(html, /Repository Understanding/);
 });
 
 test("security patterns cover .php and .cjs source files", async () => {
@@ -346,6 +420,7 @@ test("scanForWeb returns report downloads for the browser UI", async () => {
   assert.match(result.downloads.html, /Repo Doctor Report/);
   assert.match(result.downloads.markdown, /Repo Doctor Report/);
   assert.match(result.downloads.json, /"score"/);
+  assert.match(result.downloads.overview, /Repository Overview/);
   assert.match(result.downloads.summary, /Priority Summary/);
   assert.match(result.downloads.fixPrompt, /AI Fix Prompt/);
 });
